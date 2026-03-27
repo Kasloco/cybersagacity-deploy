@@ -477,7 +477,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         <tr>
                             <td><span class="vendor-name">{{ v.display_name }}</span></td>
                             <td><span class="vendor-rules">{{ v.active_rules|default(0)|commafy }}</span></td>
-                            <td style="color: var(--text-muted); font-size: 0.8rem;">{{ (v.last_successful_sync or 'Never')[:10] }}</td>
+                            <td style="color: var(--text-muted); font-size: 0.8rem;">{{ (v.last_successful_sync or 'Never')|truncate(10, True, '') }}</td>
                             <td>{% if v.active_rules|default(0) > 0 %}<span class="status-dot status-active"></span>Active{% else %}<span class="status-dot"></span>Pending{% endif %}</td>
                         </tr>
                         {% endfor %}
@@ -493,7 +493,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </div>
                 <div class="card-title" style="margin-top: 1.5rem;"><span class="card-title-icon">&#x1F3F7;</span> Top Categories</div>
                 <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem 0;">
-                    {% for c in stats.category_distribution|default([])[:15] %}
+                    {% for c in stats.category_distribution|default([])|batch(15)|first|default([]) %}
                     <span class="lang-pill" style="background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); color: var(--accent-purple);">
                         {{ c.category }} <span class="lang-count">{{ c.count|commafy }}</span>
                     </span>
@@ -505,13 +505,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <section class="grid-2">
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F504;</span> Recent Syncs</div>
-                {% for s in stats.recent_syncs|default([])[:10] %}
+                {% for s in stats.recent_syncs|default([])|batch(10)|first|default([]) %}
                 <div class="sync-item">
                     <span class="sync-status {% if s.status == 'success' %}sync-success{% elif s.status == 'failed' %}sync-failed{% endif %}">{{ s.status }}</span>
                     <span style="color: var(--accent-cyan); font-weight: 600;">{{ s.vendor_name }}</span>
                     <span style="color: var(--text-muted); margin-left: auto; font-size: 0.75rem;">
                         {% if s.status == 'success' %}+{{ s.rules_added }} / ~{{ s.rules_updated }}{% endif %}
-                        {{ (s.started_at or '')[:16] }}
+                        {{ (s.started_at or '')|truncate(16, True, '') }}
                     </span>
                 </div>
                 {% endfor %}
