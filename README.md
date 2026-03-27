@@ -4,8 +4,6 @@ Production deployment of the CyberSagacity Rule Intelligence Platform, serving *
 
 🔗 **Live:** [cybersagacity-deploy.vercel.app](https://cybersagacity-deploy.vercel.app)
 
-📦 **Source project:** [cybersagacity-rule-aggregator](https://github.com/Kasloco/cybersagacity-rule-aggregator)
-
 ---
 
 ## What This Deployment Does
