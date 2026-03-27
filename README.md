@@ -8,12 +8,14 @@ Production deployment of the CyberSagacity Rule Intelligence Platform, serving *
 
 ---
 
-## Architecture
+## What This Deployment Does
 
-This is a self-contained Vercel deployment that packages:
+This deployment packages the main rule intelligence platform into a Vercel-friendly form so the dashboard and API stay fast, lightweight, and easy to host.
+
+It includes:
 
 - A **Flask serverless function** (`api/index.py`) that serves both the HTML dashboard and the REST API
-- A **slim SQLite database** (`data/rules.db`, ~20MB) containing all 30,843 rules with metadata — stripped of raw rule content to stay within Vercel's deployment size limits
+- A **slim SQLite database** (`data/rules.db`, ~20MB) containing all 30,843 rules with metadata — stripped of raw rule content to stay within Vercel's deployment limits
 - **Chart.js** visualizations for severity, vendor, and category breakdowns
 - **Full-text search** (SQLite FTS5) across all rules
 
@@ -46,7 +48,7 @@ This is a self-contained Vercel deployment that packages:
 
 ## Updating the Database
 
-The database is a snapshot. To update it with the latest rules:
+The database is a snapshot. To refresh it with the latest rules:
 
 1. Run a full sync in the [main project](https://github.com/Kasloco/cybersagacity-rule-aggregator):
    ```bash
@@ -54,17 +56,9 @@ The database is a snapshot. To update it with the latest rules:
    python cli.py sync
    ```
 
-2. Generate a slim database (strips raw rule content to reduce size):
-   ```bash
-   python -c "
-   import sqlite3, os, json
-   src = sqlite3.connect('rules.db')
-   dst = sqlite3.connect('rules_slim.db')
-   # ... (see main project for full script)
-   "
-   ```
+2. Generate a slim database from the full rules database, stripping raw rule content to keep the deployment small.
 
-3. Copy `rules_slim.db` → `cybersagacity-deploy/data/rules.db`
+3. Copy the resulting `rules_slim.db` to `cybersagacity-deploy/data/rules.db`
 
 4. Redeploy:
    ```bash
@@ -82,7 +76,7 @@ python -c "from api.index import app; app.run(debug=True, port=8080)"
 
 ## Project Structure
 
-```
+```text
 cybersagacity-deploy/
 ├── vercel.json          # Vercel routing config
 ├── requirements.txt     # Python deps (flask, flask-cors)
