@@ -24,7 +24,10 @@ DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "rule
 
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    # Use immutable mode so SQLite doesn't try to create journal files
+    # (Vercel's filesystem is read-only)
+    uri = f"file:{DB_PATH}?mode=ro&immutable=1"
+    conn = sqlite3.connect(uri, uri=True)
     conn.row_factory = sqlite3.Row
     return conn
 

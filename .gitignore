@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 .vercel/
 CLAUDE.md
+*.db-journal
+*.db-wal
+*.db-shm
