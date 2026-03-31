@@ -3,12 +3,19 @@ CyberSagacity Rule Intelligence Platform — Vercel Serverless Function
 Serves the dashboard and rule search API from a bundled SQLite database.
 """
 
+import csv
+import io
 import json
 import os
 import sqlite3
 
-from flask import Flask, render_template_string, request, jsonify
+from flask import Flask, Response, render_template_string, request, jsonify
 from flask_cors import CORS
+
+from api.tool_config import (
+    TOOL_CONFIGS, get_tool, get_tool_summary, get_csv_headers, map_severity,
+    get_active_tools,
+)
 
 app = Flask(__name__)
 CORS(app)
@@ -102,6 +109,162 @@ def api_categories():
     """).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
+
+
+# ---------------------------------------------------------------------------
+# Tool Config & CSV Export Endpoints
+# ---------------------------------------------------------------------------
+
+@app.route("/api/tool-configs")
+def api_tool_configs():
+    """Return all 40 tool configurations from Chris's spec."""
+    return jsonify(get_tool_summary())
+
+
+@app.route("/api/tool-configs/<tool_key>")
+def api_tool_config_detail(tool_key):
+    """Return a single tool's full configuration."""
+    cfg = get_tool(tool_key)
+    if not cfg:
+        return jsonify({"error": f"Tool '{tool_key}' not found"}), 404
+    return jsonify(cfg)
+
+
+@app.route("/api/export/csv")
+def api_export_csv():
+    """
+    Export rules as CSV for a specific vendor and optionally language.
+    Uses the tool_config field definitions to produce Chris's exact CSV format.
+
+    Query params:
+      vendor  — vendor name (required)
+      language — filter by language (optional)
+      tool_key — use a specific tool_config key for field mapping (optional)
+    """
+    vendor = request.args.get("vendor")
+    language = request.args.get("language")
+    tool_key = request.args.get("tool_key")
+
+    if not vendor:
+        return jsonify({"error": "vendor parameter is required"}), 400
+
+    conn = get_db()
+
+    # Find the vendor in DB (case-insensitive, partial match)
+    vendor_row = conn.execute(
+        "SELECT * FROM vendors WHERE name=? OR display_name=?", (vendor, vendor)
+    ).fetchone()
+    if not vendor_row:
+        # Try case-insensitive partial match
+        vendor_row = conn.execute(
+            "SELECT * FROM vendors WHERE LOWER(name)=LOWER(?) OR LOWER(display_name) LIKE LOWER(?)",
+            (vendor, f"%{vendor}%"),
+        ).fetchone()
+    if not vendor_row:
+        conn.close()
+        return jsonify({"error": f"Vendor '{vendor}' not found in database"}), 404
+
+    # Build query
+    conditions = ["r.vendor_id=?", "r.is_active=1"]
+    params = [vendor_row["id"]]
+    if language:
+        conditions.append("r.language=?")
+        params.append(language)
+
+    where = " AND ".join(conditions)
+    rows = conn.execute(
+        f"""SELECT r.*, v.name as vendor_name, v.display_name as vendor_display_name
+            FROM rules r JOIN vendors v ON r.vendor_id=v.id
+            WHERE {where} ORDER BY r.rule_id""",
+        params,
+    ).fetchall()
+    conn.close()
+
+    # Determine tool config for field mapping
+    cfg = None
+    if tool_key:
+        cfg = get_tool(tool_key)
+    if not cfg:
+        # Try to auto-match vendor name to a tool config
+        vendor_lower = vendor_row["name"].lower().replace(" ", "_").replace("-", "_")
+        for key, tc in TOOL_CONFIGS.items():
+            if (key == vendor_lower or
+                tc["display_name"].lower() == vendor_row["display_name"].lower() or
+                vendor_lower in key):
+                cfg = tc
+                tool_key = key
+                break
+
+    # Build CSV
+    output = io.StringIO()
+    if cfg:
+        headers = get_csv_headers(tool_key)
+        writer = csv.writer(output)
+        writer.writerow(headers)
+
+        for row in rows:
+            row_dict = dict(row)
+            csv_row = []
+            for field_def in cfg["fields"]:
+                db_field = field_def["db_field"]
+                if "." in db_field:
+                    # Handle nested metadata fields
+                    parts = db_field.split(".", 1)
+                    if parts[0] == "metadata":
+                        try:
+                            meta = json.loads(row_dict.get("metadata") or "{}")
+                            val = meta.get(parts[1], "")
+                        except (json.JSONDecodeError, TypeError):
+                            val = ""
+                    else:
+                        val = row_dict.get(db_field, "")
+                else:
+                    val = row_dict.get(db_field, "")
+
+                # Apply severity mapping
+                if "severity" in field_def["csv_header"].lower() and tool_key:
+                    val = map_severity(tool_key, val)
+
+                # Apply classification mapping for SonarQube
+                if field_def["csv_header"] == "Classification" and cfg.get("classification_map"):
+                    val = cfg["classification_map"].get(
+                        str(val).lower(), val
+                    ) if val else ""
+
+                csv_row.append(val or "")
+            writer.writerow(csv_row)
+    else:
+        # Fallback: generic CSV with all standard fields
+        headers = ["Rule ID", "Title", "Severity", "Category", "Language",
+                   "CWE IDs", "OWASP IDs", "Tags", "Last Updated"]
+        writer = csv.writer(output)
+        writer.writerow(headers)
+        for row in rows:
+            row_dict = dict(row)
+            writer.writerow([
+                row_dict.get("rule_id", ""),
+                row_dict.get("title", ""),
+                row_dict.get("severity", ""),
+                row_dict.get("category", ""),
+                row_dict.get("language", ""),
+                row_dict.get("cwe_ids", ""),
+                row_dict.get("owasp_ids", ""),
+                row_dict.get("tags", ""),
+                row_dict.get("last_updated_at", ""),
+            ])
+
+    # Build filename
+    filename_parts = [vendor_row["name"].replace(" ", "_")]
+    if language:
+        filename_parts.append(language)
+    filename_parts.append("rules.csv")
+    filename = "_".join(filename_parts)
+
+    return Response(
+        output.getvalue(),
+        mimetype="text/csv",
+        headers={"Content-Disposition": f"attachment; filename={filename}"},
+    )
 
 
 def search_rules(query="", vendor=None, severity=None, language=None,
@@ -217,6 +380,7 @@ def get_dashboard_stats():
         "category_distribution": category_dist,
         "recent_syncs": recent_syncs,
         "recent_changes": [],
+        "tool_configs": get_tool_summary(),
     }
 
 
@@ -378,6 +542,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .pulse { animation: pulse 2s ease-in-out infinite; }
+        .tool-spec-card:hover { border-color: var(--accent-cyan); }
         @media (max-width: 1024px) { .hero-stats { grid-template-columns: repeat(2, 1fr); } .grid-2 { grid-template-columns: 1fr; } }
         @media (max-width: 640px) { .hero-stats { grid-template-columns: 1fr; } .header { padding: 0.75rem 1rem; } .main { padding: 1rem; } .search-bar { flex-direction: column; } .filter-select { width: 100%; } }
     </style>
@@ -415,9 +580,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <div class="stat-detail">Programming languages</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">Rule Categories</div>
-                <div class="stat-value">{{ stats.category_distribution|default([])|length }}</div>
-                <div class="stat-detail">Security categories</div>
+                <div class="stat-label">Tool Specifications</div>
+                <div class="stat-value">{{ stats.tool_configs|default([])|length }}</div>
+                <div class="stat-detail">From Chris Near's spec</div>
             </div>
         </section>
 
@@ -456,14 +621,38 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             <div class="results-list" id="searchResults"></div>
         </section>
 
-        <section class="grid-2">
-            <div class="card">
-                <div class="card-title"><span class="card-title-icon">&#x26A0;</span> Severity Distribution</div>
-                <div class="chart-container"><canvas id="severityChart"></canvas></div>
+        <!-- CSV Export Section -->
+        <section class="card" style="margin-bottom: 2rem;">
+            <div class="card-title"><span class="card-title-icon">&#x1F4E5;</span> CSV Export</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Download rules as CSV per vendor and language. Each tool uses its own field definitions from Chris's spec.
+            </p>
+            <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <select class="filter-select" id="csvVendor">
+                    <option value="">Select Vendor</option>
+                    {% for v in stats.vendors|default([]) %}
+                    <option value="{{ v.name }}">{{ v.display_name }} ({{ v.active_rules|default(0)|commafy }})</option>
+                    {% endfor %}
+                </select>
+                <select class="filter-select" id="csvLanguage">
+                    <option value="">All Languages</option>
+                    {% for l in stats.language_distribution|default([]) %}
+                    <option value="{{ l.language }}">{{ l.language }}</option>
+                    {% endfor %}
+                </select>
+                <button class="search-btn" onclick="exportCsv()">&#x2B07; Download CSV</button>
+                <span id="csvStatus" style="font-size: 0.8rem; color: var(--text-muted);"></span>
             </div>
+        </section>
+
+        <section class="grid-2">
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F4BB;</span> Rules by Vendor</div>
                 <div class="chart-container"><canvas id="vendorChart"></canvas></div>
+            </div>
+            <div class="card">
+                <div class="card-title"><span class="card-title-icon">&#x1F310;</span> Rules by Language (Top 15)</div>
+                <div class="chart-container"><canvas id="languageChart"></canvas></div>
             </div>
         </section>
 
@@ -491,14 +680,6 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <span class="lang-pill">{{ l.language }} <span class="lang-count">{{ l.count|commafy }}</span></span>
                     {% endfor %}
                 </div>
-                <div class="card-title" style="margin-top: 1.5rem;"><span class="card-title-icon">&#x1F3F7;</span> Top Categories</div>
-                <div style="display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.5rem 0;">
-                    {% for c in stats.category_distribution|default([])|batch(15)|first|default([]) %}
-                    <span class="lang-pill" style="background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2); color: var(--accent-purple);">
-                        {{ c.category }} <span class="lang-count">{{ c.count|commafy }}</span>
-                    </span>
-                    {% endfor %}
-                </div>
             </div>
         </section>
 
@@ -517,34 +698,49 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 {% endfor %}
             </div>
             <div class="card">
-                <div class="card-title"><span class="card-title-icon">&#x1F4C8;</span> Category Breakdown</div>
-                <div class="chart-container"><canvas id="categoryChart"></canvas></div>
+                <div class="card-title"><span class="card-title-icon">&#x1F504;</span> Sync Schedule</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
+                    <p>Rules are synced via <code style="color: var(--accent-cyan); background: rgba(6,182,212,0.1); padding: 0.1rem 0.4rem; border-radius: 4px;">python cli.py sync</code></p>
+                    <p style="margin-top: 0.5rem;">Each vendor is pulled from its upstream source (GitHub repos, API endpoints) and rules are parsed, normalized, and stored in the database.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tool Specifications (Chris's 40-tool spec) -->
+        <section class="card" style="margin-bottom: 2rem;">
+            <div class="card-title"><span class="card-title-icon">&#x1F6E1;</span> Tool Specifications ({{ stats.tool_configs|default([])|length }} Tools)</div>
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Full tool specifications from Chris Near's Rule_Gathering document. Each tool has unique fields, severity mappings, and language support.
+            </p>
+            <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                <input type="text" class="search-input" id="toolSearch" placeholder="Filter tools..." style="max-width: 300px; padding: 0.6rem 1rem; font-size: 0.85rem;">
+                <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;" id="toolCount"></span>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;" id="toolGrid">
+                {% for tc in stats.tool_configs|default([]) %}
+                <div class="tool-spec-card" data-name="{{ tc.display_name|lower }}" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; transition: border-color 0.2s;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                        <span style="font-weight: 600; color: var(--accent-cyan); font-size: 0.85rem;">{{ tc.display_name }}</span>
+                        {% if tc.active %}<span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: rgba(16,185,129,0.2); color: var(--accent-green);">Active</span>
+                        {% else %}<span style="font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; background: rgba(100,116,139,0.2); color: var(--text-muted);">Inactive</span>{% endif %}
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.3rem;">{{ tc.field_count }} fields &bull; {{ tc.language_count }} languages</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary);">{{ tc.languages[:3]|join(', ') }}{% if tc.languages|length > 3 %}, +{{ tc.languages|length - 3 }} more{% endif %}</div>
+                </div>
+                {% endfor %}
             </div>
         </section>
     </main>
 
     <footer class="footer">
         <p>CyberSagacity Rule Intelligence Platform &bull; Built for Chris Near &bull; Powered by open-source security intelligence</p>
-        <p style="margin-top: 0.5rem;">Sources: Semgrep &bull; Nuclei &bull; SonarQube &bull; Falco &bull; Trivy &bull; Checkmarx KICS &bull; Bandit &bull; FindSecBugs &bull; PMD &bull; ESLint Security</p>
+        <p style="margin-top: 0.5rem;">{{ stats.tool_configs|default([])|length }} tool specifications loaded &bull; {{ stats.total_rules|default(0)|commafy }} rules indexed &bull; {{ stats.total_vendors|default(0) }} active vendors</p>
     </footer>
 
     <script>
         Chart.defaults.color = '#94a3b8';
         Chart.defaults.borderColor = 'rgba(42, 58, 78, 0.5)';
         Chart.defaults.font.family = "'Inter', sans-serif";
-
-        const sevData = {{ stats.severity_distribution|default([])|tojson }};
-        const sevColors = { critical: '#ef4444', high: '#f43f5e', medium: '#f59e0b', low: '#3b82f6', info: '#64748b' };
-        if (sevData.length > 0) {
-            new Chart(document.getElementById('severityChart'), {
-                type: 'doughnut',
-                data: {
-                    labels: sevData.map(s => s.severity.charAt(0).toUpperCase() + s.severity.slice(1)),
-                    datasets: [{ data: sevData.map(s => s.count), backgroundColor: sevData.map(s => sevColors[s.severity] || '#64748b'), borderWidth: 0, hoverOffset: 8 }]
-                },
-                options: { responsive: true, maintainAspectRatio: false, cutout: '65%', plugins: { legend: { position: 'right', labels: { padding: 15, usePointStyle: true, pointStyle: 'circle' } } } }
-            });
-        }
 
         const vendors = {{ stats.vendors|default([])|tojson }};
         const vendorColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1'];
@@ -559,18 +755,49 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             });
         }
 
-        const catData = {{ stats.category_distribution|default([])|tojson }};
-        if (catData.length > 0) {
-            const top10 = catData.slice(0, 10);
-            new Chart(document.getElementById('categoryChart'), {
+        const langData = {{ stats.language_distribution|default([])|tojson }};
+        if (langData.length > 0) {
+            const top15 = langData.slice(0, 15);
+            const langColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1','#a855f7','#22d3ee','#84cc16','#fb923c','#64748b'];
+            new Chart(document.getElementById('languageChart'), {
                 type: 'bar',
                 data: {
-                    labels: top10.map(c => c.category),
-                    datasets: [{ label: 'Rules', data: top10.map(c => c.count), backgroundColor: 'rgba(139,92,246,0.6)', borderRadius: 4, borderSkipped: false }]
+                    labels: top15.map(l => l.language),
+                    datasets: [{ label: 'Rules', data: top15.map(l => l.count), backgroundColor: langColors.slice(0, top15.length), borderRadius: 4, borderSkipped: false }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 45 } }, y: { grid: { color: 'rgba(42,58,78,0.3)' } } } }
             });
         }
+
+        /* CSV Export */
+        function exportCsv() {
+            const vendor = document.getElementById('csvVendor').value;
+            const language = document.getElementById('csvLanguage').value;
+            const status = document.getElementById('csvStatus');
+            if (!vendor) { status.textContent = 'Please select a vendor.'; status.style.color = 'var(--accent-amber)'; return; }
+            const params = new URLSearchParams({ vendor });
+            if (language) params.set('language', language);
+            status.textContent = 'Downloading...'; status.style.color = 'var(--accent-cyan)';
+            window.location.href = '/api/export/csv?' + params.toString();
+            setTimeout(() => { status.textContent = 'Download started.'; status.style.color = 'var(--accent-green)'; }, 500);
+        }
+
+        /* Tool spec filter */
+        const toolSearchInput = document.getElementById('toolSearch');
+        const toolCards = document.querySelectorAll('.tool-spec-card');
+        const toolCountEl = document.getElementById('toolCount');
+        function filterTools() {
+            const q = toolSearchInput.value.toLowerCase();
+            let visible = 0;
+            toolCards.forEach(card => {
+                const match = card.dataset.name.includes(q);
+                card.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            toolCountEl.textContent = q ? visible + ' of ' + toolCards.length + ' tools' : toolCards.length + ' tools';
+        }
+        toolSearchInput.addEventListener('input', filterTools);
+        filterTools();
 
         async function searchRules() {
             const query = document.getElementById('searchInput').value;
