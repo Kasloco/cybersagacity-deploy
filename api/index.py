@@ -620,6 +620,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     {% endfor %}
                 </select>
                 <button class="search-btn" onclick="searchRules()">Search</button>
+                <button class="reset-btn" onclick="resetFilters()" style="padding:0.55rem 1.1rem; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); cursor:pointer; font-size:0.85rem; font-weight:600; transition:all 0.2s;">↻ Reset</button>
             </div>
             <div class="results-list" id="searchResults"></div>
         </section>
@@ -882,6 +883,18 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         }
         function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
         document.getElementById('searchInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') searchRules(); });
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('vendorFilter').value = '';
+            document.getElementById('severityFilter').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('languageFilter').value = '';
+            const container = document.getElementById('searchResults');
+            if (container) container.innerHTML = '';
+            // Scroll to top of search section
+            document.querySelector('.search-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
     </script>
 </body>
 </html>"""
