@@ -593,13 +593,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             <div class="search-bar">
                 <input type="text" class="search-input" id="searchInput"
                        placeholder="Search 30,000+ rules — try 'SQL injection', 'XSS', 'deserialization', 'crypto'...">
-                <select class="filter-select" id="vendorFilter">
+                <select class="filter-select" id="vendorFilter" onchange="updateSearchCount()">
                     <option value="">All Vendors</option>
                     {% for v in stats.vendors|default([]) %}
                     <option value="{{ v.name }}">{{ v.display_name }}</option>
                     {% endfor %}
                 </select>
-                <select class="filter-select" id="severityFilter">
+                <select class="filter-select" id="severityFilter" onchange="updateSearchCount()">
                     <option value="">All Severities</option>
                     <option value="critical">Critical</option>
                     <option value="high">High</option>
@@ -607,13 +607,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <option value="low">Low</option>
                     <option value="info">Info</option>
                 </select>
-                <select class="filter-select" id="categoryFilter">
+                <select class="filter-select" id="categoryFilter" onchange="updateSearchCount()">
                     <option value="">All Categories</option>
                     {% for c in stats.category_distribution|default([]) %}
                     <option value="{{ c.category }}">{{ c.category }} ({{ c.count|commafy }})</option>
                     {% endfor %}
                 </select>
-                <select class="filter-select" id="languageFilter">
+                <select class="filter-select" id="languageFilter" onchange="updateSearchCount()">
                     <option value="">All Languages</option>
                     {% for l in stats.language_distribution|default([]) %}
                     <option value="{{ l.language }}">{{ l.language }} ({{ l.count|commafy }})</option>
@@ -621,6 +621,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </select>
                 <button class="search-btn" onclick="searchRules()">Search</button>
                 <button class="reset-btn" onclick="resetFilters()" style="padding:0.55rem 1.1rem; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:var(--text-secondary); cursor:pointer; font-size:0.85rem; font-weight:600; transition:all 0.2s;">↻ Reset</button>
+            </div>
+            <div id="searchCount" style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.5rem;">
+                Select filters to see matching rule count, or click Search to browse all 37,660 rules.
+            </div>
             </div>
             <div class="results-list" id="searchResults"></div>
         </section>
@@ -914,6 +918,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         }
         function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
         document.getElementById('searchInput').addEventListener('keypress', function(e) { if (e.key === 'Enter') searchRules(); });
+        document.getElementById('searchInput').addEventListener('input', updateSearchCount);
 
         function resetFilters() {
             document.getElementById('searchInput').value = '';
@@ -923,6 +928,52 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             document.getElementById('languageFilter').value = '';
             const container = document.getElementById('searchResults');
             if (container) container.innerHTML = '';
+            updateSearchCount();
+        }
+
+        let _searchCountTimer = null;
+        function updateSearchCount() {
+            const countEl = document.getElementById('searchCount');
+            if (!countEl) return;
+            const vendor = document.getElementById('vendorFilter').value;
+            const severity = document.getElementById('severityFilter').value;
+            const category = document.getElementById('categoryFilter').value;
+            const language = document.getElementById('languageFilter').value;
+            const query = document.getElementById('searchInput').value.trim();
+            // If no filters selected at all, show default message
+            if (!vendor && !severity && !category && !language && !query) {
+                countEl.innerHTML = 'Select filters to see matching rule count, or click Search to browse all rules.';
+                countEl.style.color = 'var(--text-muted)';
+                return;
+            }
+            // Debounce for typing in search box
+            clearTimeout(_searchCountTimer);
+            _searchCountTimer = setTimeout(async () => {
+                const params = new URLSearchParams({ per_page: '1' });
+                if (query) params.set('q', query);
+                if (vendor) params.set('vendor', vendor);
+                if (severity) params.set('severity', severity);
+                if (category) params.set('category', category);
+                if (language) params.set('language', language);
+                try {
+                    const resp = await fetch('/api/rules?' + params.toString());
+                    const data = await resp.json();
+                    const total = data.total;
+                    // Build filter description
+                    const parts = [];
+                    if (vendor) parts.push(document.getElementById('vendorFilter').selectedOptions[0].text);
+                    if (severity) parts.push(severity.charAt(0).toUpperCase() + severity.slice(1));
+                    if (category) parts.push(category);
+                    if (language) parts.push(language);
+                    if (query) parts.push('"' + query + '"');
+                    const desc = parts.length ? parts.join(' / ') : 'all rules';
+                    countEl.innerHTML = '<strong style="color:var(--accent-cyan);">' + total.toLocaleString() + '</strong> rules match: ' + desc;
+                    countEl.style.color = 'var(--text-secondary)';
+                } catch (e) {
+                    countEl.textContent = 'Could not fetch count.';
+                    countEl.style.color = 'var(--accent-amber)';
+                }
+            }, 300);
         }
 
         function goHome() {
@@ -941,6 +992,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             if (csvCount) csvCount.innerHTML = 'Select a vendor to see available rules.';
             const csvStatus = document.getElementById('csvStatus');
             if (csvStatus) csvStatus.textContent = '';
+            const searchCount = document.getElementById('searchCount');
+            if (searchCount) searchCount.innerHTML = 'Select filters to see matching rule count, or click Search to browse all rules.';
             // Scroll to top of page
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
