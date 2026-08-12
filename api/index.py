@@ -632,13 +632,13 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 Download rules as CSV per vendor and language. Each tool uses its own field definitions from Chris's spec.
             </p>
             <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
-                <select class="filter-select" id="csvVendor">
+                <select class="filter-select" id="csvVendor" onchange="updateCsvCount()">
                     <option value="">Select Vendor</option>
                     {% for v in stats.vendors|default([]) %}
                     <option value="{{ v.name }}">{{ v.display_name }} ({{ v.active_rules|default(0)|commafy }})</option>
                     {% endfor %}
                 </select>
-                <select class="filter-select" id="csvLanguage">
+                <select class="filter-select" id="csvLanguage" onchange="updateCsvCount()">
                     <option value="">All Languages</option>
                     {% for l in stats.language_distribution|default([]) %}
                     <option value="{{ l.language }}">{{ l.language }}</option>
@@ -646,6 +646,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 </select>
                 <button class="search-btn" onclick="exportCsv()">&#x2B07; Download CSV</button>
                 <span id="csvStatus" style="font-size: 0.8rem; color: var(--text-muted);"></span>
+            </div>
+            <div id="csvCount" style="margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-secondary);">
+                Select a vendor to see available rules.
             </div>
         </section>
 
@@ -784,6 +787,34 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             status.textContent = 'Downloading...'; status.style.color = 'var(--accent-cyan)';
             window.location.href = '/api/export/csv?' + params.toString();
             setTimeout(() => { status.textContent = 'Download started.'; status.style.color = 'var(--accent-green)'; }, 500);
+        }
+
+        async function updateCsvCount() {
+            const vendor = document.getElementById('csvVendor').value;
+            const language = document.getElementById('csvLanguage').value;
+            const countEl = document.getElementById('csvCount');
+            if (!vendor) {
+                countEl.innerHTML = 'Select a vendor to see available rules.';
+                countEl.style.color = 'var(--text-muted)';
+                return;
+            }
+            const params = new URLSearchParams({ vendor, per_page: '1' });
+            if (language) params.set('language', language);
+            try {
+                const resp = await fetch('/api/rules?' + params.toString());
+                const data = await resp.json();
+                const total = data.total;
+                const vendorName = document.getElementById('csvVendor').selectedOptions[0].text.split(' (')[0];
+                if (language) {
+                    countEl.innerHTML = '<strong style="color:var(--accent-cyan);">' + total.toLocaleString() + '</strong> rules will be downloaded for <strong style="color:var(--accent-cyan);">' + vendorName + '</strong> / <strong style="color:var(--accent-cyan);">' + language + '</strong>';
+                } else {
+                    countEl.innerHTML = '<strong style="color:var(--accent-cyan);">' + total.toLocaleString() + '</strong> rules will be downloaded for <strong style="color:var(--accent-cyan);">' + vendorName + '</strong> (all languages)';
+                }
+                countEl.style.color = 'var(--text-secondary)';
+            } catch (e) {
+                countEl.textContent = 'Could not fetch count.';
+                countEl.style.color = 'var(--accent-amber)';
+            }
         }
 
         /* Tool spec filter */
