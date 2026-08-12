@@ -552,7 +552,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </head>
 <body>
     <header class="header">
-        <div class="logo">
+        <div class="logo" style="cursor:pointer;" onclick="goHome()">
             <div class="logo-icon">CS</div>
             <div>
                 <div class="logo-text">CyberSagacity</div>
@@ -560,8 +560,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             </div>
         </div>
         <div class="header-right">
+            <button onclick="goHome()" style="padding:0.4rem 0.9rem; background:var(--bg-card); border:1px solid var(--border); border-radius:8px; color:var(--text-primary); cursor:pointer; font-size:0.85rem; font-weight:600; display:flex; align-items:center; gap:0.4rem; transition:all 0.2s;">⌂ Home</button>
             <span class="header-badge pulse">{{ stats.total_rules|default(0)|commafy }} Rules Indexed</span>
-            <span class="user-badge">Chris Near &bull; Founder</span>
         </div>
     </header>
 
@@ -923,8 +923,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             document.getElementById('languageFilter').value = '';
             const container = document.getElementById('searchResults');
             if (container) container.innerHTML = '';
-            // Scroll to top of search section
-            document.querySelector('.search-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function goHome() {
+            // Reset search filters
+            document.getElementById('searchInput').value = '';
+            document.getElementById('vendorFilter').value = '';
+            document.getElementById('severityFilter').value = '';
+            document.getElementById('categoryFilter').value = '';
+            document.getElementById('languageFilter').value = '';
+            const searchResults = document.getElementById('searchResults');
+            if (searchResults) searchResults.innerHTML = '';
+            // Reset CSV export dropdowns
+            document.getElementById('csvVendor').value = '';
+            document.getElementById('csvLanguage').value = '';
+            const csvCount = document.getElementById('csvCount');
+            if (csvCount) csvCount.innerHTML = 'Select a vendor to see available rules.';
+            const csvStatus = document.getElementById('csvStatus');
+            if (csvStatus) csvStatus.textContent = '';
+            // Scroll to top of page
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
     </script>
 </body>
