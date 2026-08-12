@@ -585,7 +585,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             <div class="stat-card">
                 <div class="stat-label">Tool Specifications</div>
                 <div class="stat-value">{{ stats.tool_configs|default([])|length }}</div>
-                <div class="stat-detail">From Chris Near's spec</div>
+                <div class="stat-detail">Vendor tool configurations</div>
             </div>
         </section>
 
@@ -717,7 +717,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <section class="card" style="margin-bottom: 2rem;">
             <div class="card-title"><span class="card-title-icon">&#x1F6E1;</span> Tool Specifications ({{ stats.tool_configs|default([])|length }} Tools)</div>
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                Full tool specifications from Chris Near's Rule_Gathering document. Each tool has unique fields, severity mappings, and language support.
+                Full tool specifications from the rule gathering document. Each tool has unique fields, severity mappings, and language support.
             </p>
             <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap;">
                 <input type="text" class="search-input" id="toolSearch" placeholder="Filter tools..." style="max-width: 300px; padding: 0.6rem 1rem; font-size: 0.85rem;">
@@ -740,7 +740,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     </main>
 
     <footer class="footer">
-        <p>CyberSagacity Rule Intelligence Platform &bull; Built for Chris Near &bull; Powered by open-source security intelligence</p>
+        <p>CyberSagacity Rule Intelligence Platform &bull; Powered by open-source security intelligence</p>
         <p style="margin-top: 0.5rem;">{{ stats.tool_configs|default([])|length }} tool specifications loaded &bull; {{ stats.total_rules|default(0)|commafy }} rules indexed &bull; {{ stats.total_vendors|default(0) }} active vendors</p>
     </footer>
 
