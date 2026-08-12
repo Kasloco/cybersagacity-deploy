@@ -802,7 +802,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         toolSearchInput.addEventListener('input', filterTools);
         filterTools();
 
-        async function searchRules() {
+        async function searchRules(page) {
+            page = page || 1;
             const query = document.getElementById('searchInput').value;
             const vendor = document.getElementById('vendorFilter').value;
             const severity = document.getElementById('severityFilter').value;
@@ -812,6 +813,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             container.innerHTML = '<div style="text-align:center; padding:1rem;"><span class="spinner"></span> Searching...</div>';
             try {
                 const params = new URLSearchParams();
+                if (page > 1) params.set('page', page);
                 if (query) params.set('q', query);
                 if (vendor) params.set('vendor', vendor);
                 if (severity) params.set('severity', severity);
@@ -836,7 +838,44 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         (r.category ? '<span>Category: ' + r.category + '</span>' : '') +
                         '<span>Updated: ' + (r.last_updated_at || '').slice(0, 10) + '</span></div></div>';
                 }
+                // Pagination controls
+                if (data.pages > 1) {
+                    const currentPage = data.page;
+                    const totalPages = data.pages;
+                    html += '<div class="pagination" style="display:flex; justify-content:center; align-items:center; gap:0.5rem; padding:1.5rem 0; flex-wrap:wrap;">';
+                    // Previous button
+                    if (currentPage > 1) {
+                        html += '<button class="page-btn" onclick="searchRules(' + (currentPage - 1) + ')" style="padding:0.4rem 0.9rem; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); cursor:pointer; font-size:0.85rem;">← Prev</button>';
+                    }
+                    // Page numbers (show up to 7 pages with ellipsis)
+                    let startPage = Math.max(1, currentPage - 3);
+                    let endPage = Math.min(totalPages, currentPage + 3);
+                    if (startPage > 1) {
+                        html += '<button class="page-btn" onclick="searchRules(1)" style="padding:0.4rem 0.7rem; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); cursor:pointer; font-size:0.85rem;">1</button>';
+                        if (startPage > 2) html += '<span style="color:var(--text-muted); padding:0.4rem;">...</span>';
+                    }
+                    for (let p = startPage; p <= endPage; p++) {
+                        if (p === currentPage) {
+                            html += '<button class="page-btn page-active" style="padding:0.4rem 0.7rem; background:var(--accent-cyan); border:1px solid var(--accent-cyan); border-radius:6px; color:#0a0e17; cursor:pointer; font-size:0.85rem; font-weight:700;">' + p + '</button>';
+                        } else {
+                            html += '<button class="page-btn" onclick="searchRules(' + p + ')" style="padding:0.4rem 0.7rem; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); cursor:pointer; font-size:0.85rem;">' + p + '</button>';
+                        }
+                    }
+                    if (endPage < totalPages) {
+                        if (endPage < totalPages - 1) html += '<span style="color:var(--text-muted); padding:0.4rem;">...</span>';
+                        html += '<button class="page-btn" onclick="searchRules(' + totalPages + ')" style="padding:0.4rem 0.7rem; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); cursor:pointer; font-size:0.85rem;">' + totalPages + '</button>';
+                    }
+                    // Next button
+                    if (currentPage < totalPages) {
+                        html += '<button class="page-btn" onclick="searchRules(' + (currentPage + 1) + ')" style="padding:0.4rem 0.9rem; background:var(--bg-card); border:1px solid var(--border); border-radius:6px; color:var(--text-primary); cursor:pointer; font-size:0.85rem;">Next →</button>';
+                    }
+                    html += '</div>';
+                }
                 container.innerHTML = html;
+                // Scroll to results top if paginating
+                if (data.page > 1) {
+                    container.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
             } catch (e) {
                 container.innerHTML = '<div style="color:var(--accent-red); padding:1rem;">Search failed: ' + e.message + '</div>';
             }
