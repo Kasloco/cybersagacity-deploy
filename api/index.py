@@ -509,6 +509,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .sev-info { background: rgba(100,116,139,0.2); color: #94a3b8; }
         .chart-container { position: relative; height: 280px; }
         .chart-container-tall { position: relative; height: 500px; overflow-y: auto; }
+        .chart-container-tall canvas { display: block; }
         .search-section { margin-bottom: 2rem; }
         .search-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
         .search-input {
@@ -769,10 +770,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         const chartVendors = {{ stats.chart_vendors|default([])|tojson }};
         const vendorColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1'];
         if (chartVendors.length > 0) {
-            // Set canvas height based on vendor count so all bars are visible, container scrolls
+            // Set canvas height for all bars, container scrolls within 500px
             const vendorCanvas = document.getElementById('vendorChart');
             const barHeight = 28;
-            vendorCanvas.parentElement.style.height = Math.max(500, chartVendors.length * barHeight) + 'px';
+            const totalHeight = chartVendors.length * barHeight;
+            vendorCanvas.style.height = totalHeight + 'px';
             new Chart(vendorCanvas, {
                 type: 'bar',
                 data: {
