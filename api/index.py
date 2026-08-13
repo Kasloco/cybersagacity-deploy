@@ -165,16 +165,21 @@ def api_tool_config_detail(tool_key):
 @app.route("/api/export/csv")
 def api_export_csv():
     """
-    Export rules as CSV for a specific vendor and optionally language.
+    Export rules as CSV for a specific vendor and optionally filtered by
+    language, severity, and category. Matches the search function's filters.
     Uses the tool_config field definitions to produce Chris's exact CSV format.
 
     Query params:
-      vendor  — vendor name (required)
+      vendor   — vendor name (required)
       language — filter by language (optional)
+      severity — filter by severity (optional)
+      category — filter by category (optional)
       tool_key — use a specific tool_config key for field mapping (optional)
     """
     vendor = request.args.get("vendor")
     language = request.args.get("language")
+    severity = request.args.get("severity")
+    category = request.args.get("category")
     tool_key = request.args.get("tool_key")
 
     if not vendor:
@@ -202,6 +207,12 @@ def api_export_csv():
     if language:
         conditions.append("r.language=?")
         params.append(language)
+    if severity:
+        conditions.append("r.severity=?")
+        params.append(severity)
+    if category:
+        conditions.append("r.category=?")
+        params.append(category)
 
     where = " AND ".join(conditions)
     rows = conn.execute(
@@ -708,6 +719,20 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <option value="{{ l.language }}">{{ l.language }}</option>
                     {% endfor %}
                 </select>
+                <select class="filter-select" id="csvSeverity" onchange="updateCsvCount()">
+                    <option value="">All Severities</option>
+                    <option value="critical">Critical</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                    <option value="info">Info</option>
+                </select>
+                <select class="filter-select" id="csvCategory" onchange="updateCsvCount()">
+                    <option value="">All Categories</option>
+                    {% for c in stats.category_distribution|default([]) %}
+                    <option value="{{ c.category }}">{{ c.category }} ({{ c.count|commafy }})</option>
+                    {% endfor %}
+                </select>
                 <button class="search-btn" onclick="exportCsv()">&#x2B07; Download CSV</button>
                 <span id="csvStatus" style="font-size: 0.8rem; color: var(--text-muted);"></span>
             </div>
@@ -864,10 +889,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         function exportCsv() {
             const vendor = document.getElementById('csvVendor').value;
             const language = document.getElementById('csvLanguage').value;
+            const severity = document.getElementById('csvSeverity').value;
+            const category = document.getElementById('csvCategory').value;
             const status = document.getElementById('csvStatus');
             if (!vendor) { status.textContent = 'Please select a vendor.'; status.style.color = 'var(--accent-amber)'; return; }
             const params = new URLSearchParams({ vendor });
             if (language) params.set('language', language);
+            if (severity) params.set('severity', severity);
+            if (category) params.set('category', category);
             status.textContent = 'Downloading...'; status.style.color = 'var(--accent-cyan)';
             window.location.href = '/api/export/csv?' + params.toString();
             setTimeout(() => { status.textContent = 'Download started.'; status.style.color = 'var(--accent-green)'; }, 500);
@@ -876,6 +905,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         async function updateCsvCount() {
             const vendor = document.getElementById('csvVendor').value;
             const language = document.getElementById('csvLanguage').value;
+            const severity = document.getElementById('csvSeverity').value;
+            const category = document.getElementById('csvCategory').value;
             const countEl = document.getElementById('csvCount');
             if (!vendor) {
                 countEl.innerHTML = 'Select a vendor to see available rules.';
@@ -884,6 +915,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             }
             const params = new URLSearchParams({ vendor, per_page: '1' });
             if (language) params.set('language', language);
+            if (severity) params.set('severity', severity);
+            if (category) params.set('category', category);
             try {
                 const resp = await fetch('/api/rules?' + params.toString());
                 const data = await resp.json();
@@ -1068,6 +1101,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             // Reset CSV export dropdowns
             document.getElementById('csvVendor').value = '';
             document.getElementById('csvLanguage').value = '';
+            document.getElementById('csvSeverity').value = '';
+            document.getElementById('csvCategory').value = '';
             const csvCount = document.getElementById('csvCount');
             if (csvCount) csvCount.innerHTML = 'Select a vendor to see available rules.';
             const csvStatus = document.getElementById('csvStatus');
