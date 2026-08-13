@@ -508,6 +508,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .sev-low { background: rgba(59,130,246,0.2); color: #60a5fa; }
         .sev-info { background: rgba(100,116,139,0.2); color: #94a3b8; }
         .chart-container { position: relative; height: 280px; }
+        .chart-container-tall { position: relative; height: 500px; }
         .search-section { margin-bottom: 2rem; }
         .search-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
         .search-input {
@@ -671,7 +672,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <section class="grid-2">
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F4BB;</span> Rules by Vendor</div>
-                <div class="chart-container"><canvas id="vendorChart"></canvas></div>
+                <div class="chart-container-tall"><canvas id="vendorChart"></canvas></div>
             </div>
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F310;</span> Rules by Language (Top 15)</div>
@@ -774,7 +775,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     labels: chartVendors.map(v => v.display_name),
                     datasets: [{ label: 'Rules', data: chartVendors.map(v => v.active_rules || 0), backgroundColor: vendorColors.slice(0, chartVendors.length), borderRadius: 6, borderSkipped: false }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(42,58,78,0.3)' } }, y: { grid: { display: false } } } }
+                options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(42,58,78,0.3)' } }, y: { grid: { display: false }, ticks: { autoSkip: false, font: { size: 11 } } } } }
             });
         }
 
