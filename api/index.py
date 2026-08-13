@@ -336,13 +336,13 @@ def get_dashboard_stats():
     """).fetchall()
     ]
 
-    # Chart vendors sorted by rule count descending — only vendors with rules
+    # Chart vendors: top 15 by rule count descending — only vendors with rules
     chart_vendors = [
         dict(r)
         for r in conn.execute("""
         SELECT v.display_name, 
             (SELECT COUNT(*) FROM rules r WHERE r.vendor_id=v.id AND r.is_active=1) as active_rules
-        FROM vendors v WHERE v.rule_count > 0 ORDER BY active_rules DESC
+        FROM vendors v WHERE v.rule_count > 0 ORDER BY active_rules DESC LIMIT 15
     """).fetchall()
     ]
 
