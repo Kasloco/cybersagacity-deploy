@@ -336,13 +336,13 @@ def get_dashboard_stats():
     """).fetchall()
     ]
 
-    # Chart vendors: top 15 by rule count descending — only vendors with rules
+    # Chart vendors: all vendors with rules, sorted by rule count descending
     chart_vendors = [
         dict(r)
         for r in conn.execute("""
         SELECT v.display_name, 
             (SELECT COUNT(*) FROM rules r WHERE r.vendor_id=v.id AND r.is_active=1) as active_rules
-        FROM vendors v WHERE v.rule_count > 0 ORDER BY active_rules DESC LIMIT 15
+        FROM vendors v WHERE v.rule_count > 0 ORDER BY active_rules DESC
     """).fetchall()
     ]
 
@@ -508,7 +508,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .sev-low { background: rgba(59,130,246,0.2); color: #60a5fa; }
         .sev-info { background: rgba(100,116,139,0.2); color: #94a3b8; }
         .chart-container { position: relative; height: 280px; }
-        .chart-container-tall { position: relative; height: 500px; }
+        .chart-container-tall { position: relative; height: 500px; overflow-y: auto; }
         .search-section { margin-bottom: 2rem; }
         .search-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
         .search-input {
@@ -769,7 +769,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         const chartVendors = {{ stats.chart_vendors|default([])|tojson }};
         const vendorColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1'];
         if (chartVendors.length > 0) {
-            new Chart(document.getElementById('vendorChart'), {
+            // Set canvas height based on vendor count so all bars are visible, container scrolls
+            const vendorCanvas = document.getElementById('vendorChart');
+            const barHeight = 28;
+            vendorCanvas.parentElement.style.height = Math.max(500, chartVendors.length * barHeight) + 'px';
+            new Chart(vendorCanvas, {
                 type: 'bar',
                 data: {
                     labels: chartVendors.map(v => v.display_name),
