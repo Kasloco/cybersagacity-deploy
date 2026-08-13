@@ -442,7 +442,7 @@ def get_dashboard_stats():
         "vendors": vendors,
         "chart_vendors": chart_vendors,
         "total_rules": total_rules,
-        "total_vendors": len(vendors),
+        "total_vendors": len([v for v in vendors if v.get("active_rules", 0) > 0]),
         "severity_distribution": severity_dist,
         "language_distribution": language_dist,
         "category_distribution": category_dist,
