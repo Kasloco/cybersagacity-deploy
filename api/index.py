@@ -508,8 +508,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .sev-low { background: rgba(59,130,246,0.2); color: #60a5fa; }
         .sev-info { background: rgba(100,116,139,0.2); color: #94a3b8; }
         .chart-container { position: relative; height: 280px; }
-        .chart-container-tall { position: relative; height: 500px; overflow-y: auto; }
-        .chart-container-tall canvas { display: block; }
+        .chart-scroll-wrapper { height: 500px; overflow-y: auto; overflow-x: hidden; position: relative; }
+        .chart-scroll-wrapper canvas { display: block; max-width: 100%; }
         .search-section { margin-bottom: 2rem; }
         .search-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
         .search-input {
@@ -673,7 +673,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <section class="grid-2">
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F4BB;</span> Rules by Vendor</div>
-                <div class="chart-container-tall"><canvas id="vendorChart"></canvas></div>
+                <div class="chart-scroll-wrapper"><canvas id="vendorChart"></canvas></div>
             </div>
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F310;</span> Rules by Language (Top 15)</div>
@@ -770,11 +770,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         const chartVendors = {{ stats.chart_vendors|default([])|tojson }};
         const vendorColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1'];
         if (chartVendors.length > 0) {
-            // Set canvas height for all bars, container scrolls within 500px
+            // Set chart height for all bars — scroll wrapper handles overflow
             const vendorCanvas = document.getElementById('vendorChart');
             const barHeight = 28;
             const totalHeight = chartVendors.length * barHeight;
-            vendorCanvas.style.height = totalHeight + 'px';
+            // Create inner wrapper to hold the canvas at full height
+            const innerDiv = document.createElement('div');
+            innerDiv.style.height = totalHeight + 'px';
+            innerDiv.style.width = '100%';
+            innerDiv.style.position = 'relative';
+            vendorCanvas.parentElement.appendChild(innerDiv);
+            innerDiv.appendChild(vendorCanvas);
             new Chart(vendorCanvas, {
                 type: 'bar',
                 data: {
