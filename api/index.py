@@ -62,7 +62,7 @@ def api_rules():
         language=request.args.get("language"),
         category=request.args.get("category"),
         page=int(request.args.get("page", 1)),
-        per_page=int(request.args.get("per_page", 50)),
+        per_page=min(int(request.args.get("per_page", 50)), 500),
     ))
 
 
@@ -110,6 +110,35 @@ def api_categories():
         SELECT category, COUNT(*) as count FROM rules
         WHERE is_active=1 AND category != '' GROUP BY category ORDER BY count DESC
     """).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/cwe")
+def api_cwe():
+    """List all CWEs with rule counts across vendors."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT cwe_ids, COUNT(*) as rule_count, GROUP_CONCAT(DISTINCT v.display_name) as vendors
+        FROM rules r JOIN vendors v ON r.vendor_id=v.id
+        WHERE r.is_active=1 AND r.cwe_ids != ''
+        GROUP BY cwe_ids ORDER BY rule_count DESC LIMIT 100
+    """).fetchall()
+    conn.close()
+    return jsonify([dict(r) for r in rows])
+
+
+@app.route("/api/cwe/<cwe_id>")
+def api_cwe_detail(cwe_id):
+    """Show all rules for a specific CWE across all vendors."""
+    conn = get_db()
+    rows = conn.execute("""
+        SELECT r.rule_id, r.title, r.severity, r.language, r.cwe_ids,
+               v.name as vendor_name, v.display_name as vendor_display_name
+        FROM rules r JOIN vendors v ON r.vendor_id=v.id
+        WHERE r.is_active=1 AND r.cwe_ids LIKE ?
+        ORDER BY v.display_name, r.rule_id
+    """, (f"%{cwe_id}%",)).fetchall()
     conn.close()
     return jsonify([dict(r) for r in rows])
 
@@ -374,6 +403,19 @@ def get_dashboard_stats():
     """).fetchall()
     ]
 
+    # Top CWEs across all vendors — for cross-vendor mapping view
+    cwe_dist = [
+        dict(r)
+        for r in conn.execute("""
+        SELECT cwe_ids as cwe, COUNT(*) as rule_count,
+               COUNT(DISTINCT v.id) as vendor_count,
+               GROUP_CONCAT(DISTINCT v.display_name) as vendors
+        FROM rules r JOIN vendors v ON r.vendor_id=v.id
+        WHERE r.is_active=1 AND r.cwe_ids != ''
+        GROUP BY cwe_ids ORDER BY rule_count DESC LIMIT 25
+    """).fetchall()
+    ]
+
     recent_syncs = [
         dict(r)
         for r in conn.execute("""
@@ -393,6 +435,7 @@ def get_dashboard_stats():
         "severity_distribution": severity_dist,
         "language_distribution": language_dist,
         "category_distribution": category_dist,
+        "cwe_distribution": cwe_dist,
         "recent_syncs": recent_syncs,
         "recent_changes": [],
         "tool_configs": get_tool_summary(),
@@ -684,6 +727,30 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             </div>
         </section>
 
+        <section style="margin-bottom: 2rem;">
+            <div class="card">
+                <div class="card-title"><span class="card-title-icon">&#x1F510;</span> Cross-Vendor Rule Mapping (Top CWEs)</div>
+                <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                    Same vulnerability class, different vendors. Click a CWE to see all rules across vendors.
+                </p>
+                <div style="max-height: 400px; overflow-y: auto;">
+                    <table style="width: 100%; border-collapse: collapse;">
+                        <thead>
+                            <tr>
+                                <th style="text-align: left; padding: 8px 12px; font-size: 0.8rem; color: var(--text-secondary); border-bottom: 1px solid var(--border);">CWE</th>
+                                <th style="text-align: center; padding: 8px 12px; font-size: 0.8rem; color: var(--text-secondary); border-bottom: 1px solid var(--border);">Rules</th>
+                                <th style="text-align: center; padding: 8px 12px; font-size: 0.8rem; color: var(--text-secondary); border-bottom: 1px solid var(--border);">Vendors</th>
+                                <th style="text-align: left; padding: 8px 12px; font-size: 0.8rem; color: var(--text-secondary); border-bottom: 1px solid var(--border);">Vendor Coverage</th>
+                            </tr>
+                        </thead>
+                        <tbody id="cweTableBody">
+                            <tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
         <section class="grid-2">
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F50D;</span> Vendor Sources</div>
@@ -815,6 +882,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 },
                 options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } } }, y: { grid: { color: 'rgba(42,58,78,0.3)' } } } }
             });
+        }
+
+        /* Cross-Vendor CWE Mapping Table */
+        const cweData = {{ stats.cwe_distribution|default([])|tojson }};
+        const cweBody = document.getElementById('cweTableBody');
+        if (cweData.length > 0) {
+            cweBody.innerHTML = cweData.map(c => {
+                const vendors = (c.vendors || '').split(',').slice(0, 5).join(', ');
+                const extra = (c.vendors || '').split(',').length > 5 ? ` +${(c.vendors||'').split(',').length - 5} more` : '';
+                return `<tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 8px 12px; font-family: monospace; color: var(--accent-cyan); cursor: pointer;" onclick="window.location.href='/api/cwe/${encodeURIComponent(c.cwe)}'">${c.cwe}</td>
+                    <td style="padding: 8px 12px; text-align: center; color: var(--text-primary);">${c.rule_count}</td>
+                    <td style="padding: 8px 12px; text-align: center;"><span style="background: var(--accent-purple); color: white; padding: 2px 8px; border-radius: 10px; font-size: 0.75rem;">${c.vendor_count}</span></td>
+                    <td style="padding: 8px 12px; font-size: 0.75rem; color: var(--text-secondary);">${vendors}${extra}</td>
+                </tr>`;
+            }).join('');
+        } else {
+            cweBody.innerHTML = '<tr><td colspan="4" style="padding: 20px; text-align: center; color: var(--text-muted);">No CWE data available</td></tr>';
         }
 
         /* CSV Export */
