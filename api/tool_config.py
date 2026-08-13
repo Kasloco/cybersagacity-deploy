@@ -425,7 +425,7 @@ TOOL_CONFIGS = {
         "display_name": "Whitehat",
         "languages": ["Universal"],
         "language_notes": None,
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "Access.Administration.Interface"},
             {"csv_header": "Description", "db_field": "description", "example": "Application Misconfiguration: Exposed Axis Administration Servlet"},
@@ -755,7 +755,7 @@ TOOL_CONFIGS = {
         "display_name": "GitHub CodeQL",
         "languages": ["C/C++", "Csharp", "Go", "Java", "JavaScript", "Python", "Ruby", "Rust", "Swift"],
         "language_notes": "C and C++ are combined; Java and Kotlin are combined; JavaScript and Typescript are combined.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name 1", "db_field": "title", "example": "cpp/new-delete-array-mismatch"},
             {"csv_header": "Defect Name 2", "db_field": "description", "example": "'new' object freed with 'delete[]'"},
@@ -796,7 +796,7 @@ TOOL_CONFIGS = {
         "display_name": "Checkmarx API Security",
         "languages": ["Universal"],
         "language_notes": "API discovery and API-specific findings; integrates SAST and DAST observations.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "API_BOLA"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "639, can be none"},
@@ -815,7 +815,7 @@ TOOL_CONFIGS = {
         "display_name": "Mend DAST",
         "languages": ["Universal"],
         "language_notes": "Language-agnostic; scans running applications and APIs.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "XSS_Reflected"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "79, can be none"},
@@ -852,7 +852,7 @@ TOOL_CONFIGS = {
         "display_name": "Contrast Assess",
         "languages": ["Java", "Csharp", "JavaScript", "Python"],
         "language_notes": "Agent/instrumentation-based IAST. Runtime data-flow analysis with active verification.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "sql-injection"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "89, can be none"},
@@ -871,7 +871,7 @@ TOOL_CONFIGS = {
         "display_name": "Contrast Scan",
         "languages": ["Java", "Csharp", "JavaScript", "Python"],
         "language_notes": "Contrast's SAST capability, separate from Assess/IAST.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "sql-injection"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "89, can be none"},
@@ -890,7 +890,7 @@ TOOL_CONFIGS = {
         "display_name": "Acunetix",
         "languages": ["Universal"],
         "language_notes": "DAST; language-agnostic. CVE-based vulnerability scanning.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect ID", "db_field": "rule_id", "example": "CVE-2021-44228"},
             {"csv_header": "Defect Name", "db_field": "title", "example": "Log4Shell"},
@@ -910,7 +910,7 @@ TOOL_CONFIGS = {
         "display_name": "Invicti",
         "languages": ["Universal"],
         "language_notes": "DAST-first platform with API discovery/testing and proof-based validation. CVE-based.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect ID", "db_field": "rule_id", "example": "CVE-2021-44228"},
             {"csv_header": "Defect Name", "db_field": "title", "example": "Log4Shell"},
@@ -930,7 +930,7 @@ TOOL_CONFIGS = {
         "display_name": "Burp Suite DAST",
         "languages": ["Universal"],
         "language_notes": "Enterprise automated Burp Scanner with modern API scanning support.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "SQL Injection"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "89, can be none"},
@@ -949,7 +949,7 @@ TOOL_CONFIGS = {
         "display_name": "Burp Suite Professional Scanner",
         "languages": ["Universal"],
         "language_notes": "Burp Professional results can enter workflows independently of Burp Suite DAST.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "SQL Injection"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "89, can be none"},
@@ -1025,7 +1025,7 @@ TOOL_CONFIGS = {
         "display_name": "Black Duck Continuous Dynamic",
         "languages": ["Universal"],
         "language_notes": "Production-safe DAST with continuous scanning/verification. Successor to WhiteHat Dynamic.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "XSS_Reflected"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "79, can be none"},
@@ -1044,7 +1044,7 @@ TOOL_CONFIGS = {
         "display_name": "Black Duck Seeker",
         "languages": ["Java", "Csharp", "JavaScript", "PHP", "Python", "Ruby"],
         "language_notes": "True IAST. Instruments running applications and performs runtime/data-flow analysis.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "SQL_Injection"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "89, can be none"},
@@ -1063,7 +1063,7 @@ TOOL_CONFIGS = {
         "display_name": "Black Duck Polaris",
         "languages": ["Universal"],
         "language_notes": "Platform: SAST / DAST / SCA. Multiple languages; scanner dependent.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "SQL_Injection"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "89, can be none"},
@@ -1116,7 +1116,7 @@ TOOL_CONFIGS = {
         "display_name": "Gitleaks",
         "languages": ["Universal"],
         "language_notes": "Language-agnostic; scans Git repositories, files, and history for secrets.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "aws-access-token"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "798, can be none"},
@@ -1135,7 +1135,7 @@ TOOL_CONFIGS = {
         "display_name": "Grype",
         "languages": ["Universal"],
         "language_notes": "CVE-based. Container images, filesystems, SBOMs, packages.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect ID", "db_field": "rule_id", "example": "CVE-2021-44228"},
             {"csv_header": "Defect Name", "db_field": "title", "example": "Log4Shell"},
@@ -1155,7 +1155,7 @@ TOOL_CONFIGS = {
         "display_name": "Joern",
         "languages": ["C/C++", "Java", "JavaScript", "Python", "Kotlin"],
         "language_notes": "Code Property Graph analyzer. Vulnerability research and data flow analysis.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "buffer-overflow"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "120, can be none"},
@@ -1174,7 +1174,7 @@ TOOL_CONFIGS = {
         "display_name": "OSV-Scanner",
         "languages": ["Universal"],
         "language_notes": "Language-agnostic through package manifests, lockfiles, SBOMs. CVE-based.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect ID", "db_field": "rule_id", "example": "CVE-2021-44228"},
             {"csv_header": "Defect Name", "db_field": "title", "example": "Log4Shell"},
@@ -1194,7 +1194,7 @@ TOOL_CONFIGS = {
         "display_name": "TruffleHog OSS",
         "languages": ["Universal"],
         "language_notes": "Language-agnostic; scans repositories, filesystems, and supported data sources.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "aws-access-token"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "798, can be none"},
@@ -1213,7 +1213,7 @@ TOOL_CONFIGS = {
         "display_name": "ErrorProne",
         "languages": ["Java"],
         "language_notes": "Google's Java bug pattern analyzer. Compile-time error detection.",
-        "active": True,
+        "active": False,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "NullAway"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "none"},
