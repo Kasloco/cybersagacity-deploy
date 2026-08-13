@@ -54,7 +54,7 @@ TOOL_CONFIGS = {
     # -------------------------------------------------------------------------
     # 3. Black Duck Coverity (formerly Synopsys)
     # -------------------------------------------------------------------------
-    "synopsys_coverity": {
+    "blackduck_coverity": {
         "display_name": "Black Duck Coverity",
         "languages": ["C/C++", "Csharp", "Java", "JavaScript", "Objective-C",
                        "PHP", "Python", "Scala", "VisualBasic"],
@@ -319,43 +319,6 @@ TOOL_CONFIGS = {
     },
 
     # -------------------------------------------------------------------------
-    # 17. Roguewave Klocwork
-    # -------------------------------------------------------------------------
-    "roguewave_klocwork": {
-        "display_name": "Roguewave Klocwork",
-        "languages": ["C/C++", "Csharp", "Java", "JavaScript", "Python"],
-        "language_notes": "JavaScript, Typescript, and React are combined.",
-        "active": True,
-        "fields": [
-            {"csv_header": "Defect Name", "db_field": "rule_id", "example": "CS.ABV.EXCEPT"},
-            {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "125, can be none"},
-            {"csv_header": "Severity", "db_field": "severity", "example": "1"},
-        ],
-        "severity_map": {"1": "1", "2": "2", "3": "3", "4": "4", "5": "5",
-                         "critical": "1", "high": "2", "medium": "3", "low": "4", "info": "5"},
-    },
-
-    # -------------------------------------------------------------------------
-    # 18. Tenable Nessus
-    # -------------------------------------------------------------------------
-    "tenable_nessus": {
-        "display_name": "Tenable Nessus",
-        "languages": ["Universal"],
-        "language_notes": None,
-        "active": True,
-        "fields": [
-            {"csv_header": "Defect ID", "db_field": "rule_id", "example": "98033"},
-            {"csv_header": "Defect Name", "db_field": "title", "example": "Login Form Defected"},
-            {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "319, can be none"},
-            {"csv_header": "Severity", "db_field": "severity", "example": "C"},
-        ],
-        "severity_map": {
-            "critical": "C", "high": "H", "medium": "M",
-            "low": "L", "info": "I", "information": "I",
-        },
-    },
-
-    # -------------------------------------------------------------------------
     # 19. Parasoft Insure++
     # -------------------------------------------------------------------------
     "parasoft_insure": {
@@ -543,28 +506,6 @@ TOOL_CONFIGS = {
         "severity_map": {
             "error": "ERROR", "warning": "WARNING", "info": "INFO",
             "critical": "ERROR", "high": "ERROR", "medium": "WARNING", "low": "INFO",
-        },
-    },
-
-    # -------------------------------------------------------------------------
-    # 30. GitHub
-    # -------------------------------------------------------------------------
-    "github": {
-        "display_name": "GitHub",
-        "languages": ["C/C++", "Csharp", "Java", "JavaScript", "Python", "Swift"],
-        "language_notes": "C and C++ are combined; Java and Kotlin are combined; JavaScript and Typescript are combined.",
-        "active": True,
-        "fields": [
-            {"csv_header": "Defect Name 1", "db_field": "title", "example": "cpp/new-delete-array-mismatch"},
-            {"csv_header": "Defect Name 2", "db_field": "description", "example": "'new' object freed with 'delete[]'"},
-            {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "118, can be none"},
-            {"csv_header": "Severity", "db_field": "severity", "example": "Error"},
-            {"csv_header": "Security Severity", "db_field": "metadata.security_severity", "example": "8.2 or 9.3"},
-        ],
-        "severity_map": {
-            "error": "Error", "warning": "Warning",
-            "recommendation": "Recommendation",
-            "critical": "Error", "high": "Error", "medium": "Warning", "low": "Recommendation",
         },
     },
 

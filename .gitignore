@@ -6,3 +6,5 @@ CLAUDE.md
 *.db-journal
 *.db-wal
 *.db-shm
+data/rules.db.full
+.DS_Store
