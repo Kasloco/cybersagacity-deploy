@@ -324,6 +324,7 @@ def search_rules(query="", vendor=None, severity=None, language=None,
 def get_dashboard_stats():
     conn = get_db()
 
+    # Vendors sorted alphabetically — used for dropdown, CSV export, and table
     vendors = [
         dict(r)
         for r in conn.execute("""
@@ -332,6 +333,16 @@ def get_dashboard_stats():
             (SELECT MAX(completed_at) FROM sync_history sh
              WHERE sh.vendor_id=v.id AND sh.status='success') as last_successful_sync
         FROM vendors v ORDER BY v.display_name
+    """).fetchall()
+    ]
+
+    # Chart vendors sorted by rule count descending — only vendors with rules
+    chart_vendors = [
+        dict(r)
+        for r in conn.execute("""
+        SELECT v.display_name, 
+            (SELECT COUNT(*) FROM rules r WHERE r.vendor_id=v.id AND r.is_active=1) as active_rules
+        FROM vendors v WHERE v.rule_count > 0 ORDER BY active_rules DESC
     """).fetchall()
     ]
 
@@ -376,6 +387,7 @@ def get_dashboard_stats():
 
     return {
         "vendors": vendors,
+        "chart_vendors": chart_vendors,
         "total_rules": total_rules,
         "total_vendors": len(vendors),
         "severity_distribution": severity_dist,
@@ -753,14 +765,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         Chart.defaults.borderColor = 'rgba(42, 58, 78, 0.5)';
         Chart.defaults.font.family = "'Inter', sans-serif";
 
-        const vendors = {{ stats.vendors|default([])|tojson }};
+        const chartVendors = {{ stats.chart_vendors|default([])|tojson }};
         const vendorColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1'];
-        if (vendors.length > 0) {
+        if (chartVendors.length > 0) {
             new Chart(document.getElementById('vendorChart'), {
                 type: 'bar',
                 data: {
-                    labels: vendors.map(v => v.display_name),
-                    datasets: [{ label: 'Rules', data: vendors.map(v => v.active_rules || 0), backgroundColor: vendorColors.slice(0, vendors.length), borderRadius: 6, borderSkipped: false }]
+                    labels: chartVendors.map(v => v.display_name),
+                    datasets: [{ label: 'Rules', data: chartVendors.map(v => v.active_rules || 0), backgroundColor: vendorColors.slice(0, chartVendors.length), borderRadius: 6, borderSkipped: false }]
                 },
                 options: { responsive: true, maintainAspectRatio: false, indexAxis: 'y', plugins: { legend: { display: false } }, scales: { x: { grid: { color: 'rgba(42,58,78,0.3)' } }, y: { grid: { display: false } } } }
             });
