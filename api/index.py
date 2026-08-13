@@ -510,6 +510,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .chart-container { position: relative; height: 280px; }
         .chart-scroll-wrapper { height: 500px; overflow-y: auto; overflow-x: hidden; position: relative; }
         .chart-scroll-wrapper canvas { display: block; max-width: 100%; }
+        .chart-hscroll-wrapper { overflow-x: auto; overflow-y: hidden; position: relative; height: 280px; }
+        .chart-hscroll-wrapper canvas { display: block; }
         .search-section { margin-bottom: 2rem; }
         .search-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
         .search-input {
@@ -676,8 +678,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <div class="chart-scroll-wrapper"><canvas id="vendorChart"></canvas></div>
             </div>
             <div class="card">
-                <div class="card-title"><span class="card-title-icon">&#x1F310;</span> Rules by Language (Top 15)</div>
-                <div class="chart-container"><canvas id="languageChart"></canvas></div>
+                <div class="card-title"><span class="card-title-icon">&#x1F310;</span> Rules by Language</div>
+                <div class="chart-hscroll-wrapper"><canvas id="languageChart"></canvas></div>
             </div>
         </section>
 
@@ -793,15 +795,24 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 
         const langData = {{ stats.language_distribution|default([])|tojson }};
         if (langData.length > 0) {
-            const top15 = langData.slice(0, 15);
-            const langColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1','#a855f7','#22d3ee','#84cc16','#fb923c','#64748b'];
-            new Chart(document.getElementById('languageChart'), {
+            // Show all languages — horizontal scroll for wide chart
+            const langCanvas = document.getElementById('languageChart');
+            const barWidth = 60;
+            const totalWidth = langData.length * barWidth;
+            const innerDiv2 = document.createElement('div');
+            innerDiv2.style.width = totalWidth + 'px';
+            innerDiv2.style.height = '280px';
+            innerDiv2.style.position = 'relative';
+            langCanvas.parentElement.appendChild(innerDiv2);
+            innerDiv2.appendChild(langCanvas);
+            const langColors = ['#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1','#a855f7','#22d3ee','#84cc16','#fb923c','#64748b','#06b6d4','#3b82f6','#8b5cf6','#10b981','#f59e0b','#ef4444','#ec4899','#14b8a6','#f97316','#6366f1','#a855f7','#22d3ee','#84cc16','#fb923c','#64748b'];
+            new Chart(langCanvas, {
                 type: 'bar',
                 data: {
-                    labels: top15.map(l => l.language),
-                    datasets: [{ label: 'Rules', data: top15.map(l => l.count), backgroundColor: langColors.slice(0, top15.length), borderRadius: 4, borderSkipped: false }]
+                    labels: langData.map(l => l.language),
+                    datasets: [{ label: 'Rules', data: langData.map(l => l.count), backgroundColor: langColors.slice(0, langData.length), borderRadius: 4, borderSkipped: false }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { maxRotation: 45 } }, y: { grid: { color: 'rgba(42,58,78,0.3)' } } } }
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { grid: { display: false }, ticks: { autoSkip: false, maxRotation: 45, font: { size: 10 } } }, y: { grid: { color: 'rgba(42,58,78,0.3)' } } } }
             });
         }
 
