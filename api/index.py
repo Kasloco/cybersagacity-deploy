@@ -481,7 +481,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .stat-card:nth-child(3) .stat-value { color: var(--accent-amber); }
         .stat-card:nth-child(4) .stat-value { color: var(--accent-purple); }
         .stat-detail { font-size: 0.75rem; color: var(--text-secondary); }
-        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; min-width: 0; }
+        .grid-2 .card { min-width: 0; overflow: hidden; }
         .card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
         .card-title {
             font-size: 0.9rem; font-weight: 600; color: var(--text-secondary);
@@ -508,9 +509,9 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .sev-low { background: rgba(59,130,246,0.2); color: #60a5fa; }
         .sev-info { background: rgba(100,116,139,0.2); color: #94a3b8; }
         .chart-container { position: relative; height: 280px; }
-        .chart-scroll-wrapper { height: 500px; overflow-y: auto; overflow-x: hidden; position: relative; }
+        .chart-scroll-wrapper { height: 500px; overflow-y: auto; overflow-x: hidden; position: relative; max-width: 100%; }
         .chart-scroll-wrapper canvas { display: block; max-width: 100%; }
-        .chart-hscroll-wrapper { overflow-x: auto; overflow-y: hidden; position: relative; height: 280px; }
+        .chart-hscroll-wrapper { overflow-x: auto; overflow-y: hidden; position: relative; height: 500px; max-width: 100%; }
         .chart-hscroll-wrapper canvas { display: block; }
         .search-section { margin-bottom: 2rem; }
         .search-bar { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
