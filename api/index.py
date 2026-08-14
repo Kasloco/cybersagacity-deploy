@@ -205,7 +205,7 @@ def api_export_csv():
     conditions = ["r.vendor_id=?", "r.is_active=1"]
     params = [vendor_row["id"]]
     if language:
-        conditions.append("r.language=?")
+        conditions.append("LOWER(r.language)=LOWER(?)")
         params.append(language)
     if severity:
         conditions.append("r.severity=?")
@@ -317,10 +317,23 @@ def search_rules(query="", vendor=None, severity=None, language=None,
     params = []
 
     if query:
-        conditions.append(
-            "r.id IN (SELECT rowid FROM rules_fts WHERE rules_fts MATCH ?)"
-        )
-        params.append(query)
+        # FTS5 can crash on special characters (c#, *, ", boolean operators)
+        # Fall back to LIKE search if FTS5 throws OperationalError
+        try:
+            # Test the FTS query first with a count
+            conn.execute(
+                "SELECT COUNT(*) FROM rules_fts WHERE rules_fts MATCH ?",
+                [query],
+            ).fetchone()
+            conditions.append(
+                "r.id IN (SELECT rowid FROM rules_fts WHERE rules_fts MATCH ?)"
+            )
+            params.append(query)
+        except Exception:
+            # FTS5 failed — fall back to LIKE search
+            conditions.append("(r.title LIKE ? OR r.rule_id LIKE ? OR r.description LIKE ?)")
+            like_q = f"%{query}%"
+            params.extend([like_q, like_q, like_q])
     if vendor:
         conditions.append("v.name=?")
         params.append(vendor)
@@ -328,7 +341,7 @@ def search_rules(query="", vendor=None, severity=None, language=None,
         conditions.append("r.severity=?")
         params.append(severity)
     if language:
-        conditions.append("r.language=?")
+        conditions.append("LOWER(r.language)=LOWER(?)")
         params.append(language)
     if category:
         conditions.append("r.category=?")
