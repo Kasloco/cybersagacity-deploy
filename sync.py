@@ -2,9 +2,11 @@
 """
 Sync script for GitHub Actions / local use.
 
-Clones (or updates) the cybersagacity-rule-aggregator repo, runs a full
-sync, and produces a deployment-optimized rules.db in the deploy repo's
-data/ directory. The deploy DB strips rule_changes and sync_history
+Clones (or updates) the cybersagacity-rule-aggregator repo, syncs ONLY
+the vendors Chris Near has approved, and produces a deployment-optimized
+rules.db in the deploy repo's data/ directory.
+
+The deploy DB strips rule_changes, sync_history, and rule_content
 (not needed on Vercel) and vacuums to minimize file size.
 
 Usage:
@@ -25,6 +27,55 @@ AGGREGATOR_DIR = Path(os.environ.get("AGGREGATOR_DIR", "/tmp/aggregator"))
 DEPLOY_DIR = Path(__file__).resolve().parent
 DB_PATH = DEPLOY_DIR / "data" / "rules.db"
 
+# ---------------------------------------------------------------------------
+# Supported vendors — only these collectors are run during sync.
+#
+# This list maps to Chris Near's tool spec (tool_config.py). Only tools
+# marked active=True in the spec are included here. Tools that exist in
+# the aggregator but are NOT in Chris's spec (Nuclei, Checkov, Brakeman,
+# Falco, etc.) or are marked inactive (FindBugs, Flawfinder, CodeQL,
+# ErrorProne, Joern, Grype, OSV-Scanner, TruffleHog, Gitleaks) are
+# excluded — their rules will not appear in the deployed DB.
+#
+# NOTE: Some tools in Chris's spec don't have collectors yet (Adacore
+# Codepeer, Checkmarx 9/One, Coverity, JFrog, Klocwork, Parasoft,
+# StackHawk, Tenable, Veracode DAST, Wallarm, npm). Those are skipped
+# gracefully — the CLI reports "Unknown vendor" and continues.
+# Tools like detekt, SwiftLint, ShellCheck, Hadolint, PHPStan, Psalm,
+# Checkov, Tfsec, Trivy, Retire.js, Nuclei, Falco, Brakeman, gosec,
+# OWASP Dependency-Check exist in the aggregator but are NOT in Chris's
+# spec, so they're excluded from this list.
+# ---------------------------------------------------------------------------
+SUPPORTED_VENDORS = [
+    "bandit",
+    "clang",
+    "cppcheck",
+    "deque_axe",
+    "dlint",
+    "eslint_security",
+    "findsecbugs",
+    "fortify",
+    "gitlab_advanced_sast",
+    "gitlab_dast",
+    "gitlab_sast",
+    "infer",
+    "mobsf",
+    "nodejsscan",        # maps to nodejs_scan in spec
+    "njsscan",
+    "owasp_zap",
+    "php_codesniffer",
+    "phpcs_security_audit",
+    "phpmd",
+    "pmd",
+    "pylint",
+    "security_code_scan",
+    "semgrep",
+    "snyk",
+    "sonarqube",
+    "spotbugs",
+    "veracode",
+]
+
 
 def run(cmd, cwd=None, check=True, env=None):
     """Run a command, streaming output to stdout/stderr."""
@@ -39,19 +90,18 @@ def run(cmd, cwd=None, check=True, env=None):
     return result.returncode
 
 
-def slim_for_deploy(src_db: Path, dest_db: Path):
+def slim_for_deploy(src_db: Path, dest_db: Path, supported_vendors: list[str] | None = None):
     """Copy the aggregator DB and strip data not needed for deployment.
 
-    Three things get stripped:
+    Strips:
     1. rule_changes — accumulates full old/new rule content on every sync
        (390MB+ for a fresh sync of 37k rules). Dashboard never reads it.
     2. sync_history — audit log, not needed on a read-only deploy.
     3. rule_content — raw rule definitions (YAML/JSON/XML/Rego), 56MB+.
-       The dashboard's search/listing endpoints don't use it. The detail
-       endpoint returns it but it's mostly noise in a browser context.
        Dropping it keeps the DB under GitHub's 100MB file size limit.
-
-    Result: ~63MB instead of 512MB, with all 37k rules + FTS intact.
+    4. Rules from unsupported vendors — if supported_vendors is provided,
+       any vendor not in that list gets is_active=0 so its rules don't
+       appear in the dashboard.
     """
     print(f"\nBuilding deployment DB (stripping change history + rule content)...")
     dest_db.parent.mkdir(parents=True, exist_ok=True)
@@ -64,6 +114,30 @@ def slim_for_deploy(src_db: Path, dest_db: Path):
     conn.execute("DELETE FROM rule_changes;")
     conn.execute("DELETE FROM sync_history;")
     conn.execute("UPDATE rules SET rule_content = '';")
+
+    # Deactivate rules from vendors not in the supported list
+    if supported_vendors:
+        placeholders = ",".join("?" * len(supported_vendors))
+        # Get vendor IDs to deactivate
+        rows = conn.execute(
+            f"SELECT id, display_name FROM vendors WHERE name NOT IN ({placeholders})",
+            supported_vendors,
+        ).fetchall()
+        if rows:
+            ids = [r[0] for r in rows]
+            id_placeholders = ",".join("?" * len(ids))
+            conn.execute(
+                f"UPDATE rules SET is_active=0 WHERE vendor_id IN ({id_placeholders})",
+                ids,
+            )
+            # Zero out their rule_count so the dashboard doesn't show them
+            conn.execute(
+                f"UPDATE vendors SET rule_count=0 WHERE id IN ({id_placeholders})",
+                ids,
+            )
+            names = [r[1] for r in rows]
+            print(f"Deactivated {len(ids)} unsupported vendors: {', '.join(names)}")
+
     conn.execute("VACUUM;")
     conn.close()
 
@@ -94,18 +168,22 @@ def main():
     # bs4 is needed by the Fortify collector but not in requirements.txt
     run(["pip", "install", "--no-cache-dir", "beautifulsoup4"])
 
-    # Run the sync
+    # Run the sync — only supported vendors
     env = os.environ.copy()
     env["RULE_AGGREGATOR_DB"] = str(db_path)
 
     print("Running setup (init DB + register vendors)...")
     run(["python", "cli.py", "setup"], cwd=agg_dir, env=env)
 
-    sync_cmd = ["python", "cli.py", "sync"]
-    if args.force:
-        sync_cmd.append("--force")
-    print("Running sync...")
-    run(sync_cmd, cwd=agg_dir, env=env)
+    # Sync each supported vendor individually
+    print(f"\nSyncing {len(SUPPORTED_VENDORS)} supported vendors...")
+    for vendor in SUPPORTED_VENDORS:
+        sync_cmd = ["python", "cli.py", "sync", "--vendor", vendor]
+        if args.force:
+            sync_cmd.append("--force")
+        # Don't raise on failure — some collectors may fail (e.g. file-based
+        # sources without local files). Just log and continue.
+        run(sync_cmd, cwd=agg_dir, env=env, check=False)
 
     # Show status
     print("\n=== Status ===")
@@ -115,7 +193,7 @@ def main():
     if not db_path.exists():
         print(f"ERROR: rules.db not found at {db_path}", file=sys.stderr)
         sys.exit(1)
-    slim_for_deploy(db_path, DB_PATH)
+    slim_for_deploy(db_path, DB_PATH, SUPPORTED_VENDORS)
 
 
 if __name__ == "__main__":
