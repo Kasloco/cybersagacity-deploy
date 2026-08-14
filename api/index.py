@@ -679,7 +679,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                        placeholder="Search 30,000+ rules — try 'SQL injection', 'XSS', 'deserialization', 'crypto'...">
                 <select class="filter-select" id="vendorFilter" onchange="updateSearchCount()">
                     <option value="">All Vendors</option>
-                    {% for v in stats.vendors|default([]) %}
+                    {% for v in stats.vendors|default([]) if v.active_rules|default(0) > 0 %}
                     <option value="{{ v.name }}">{{ v.display_name }}</option>
                     {% endfor %}
                 </select>
@@ -722,7 +722,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
                 <select class="filter-select" id="csvVendor" onchange="updateCsvCount()">
                     <option value="">Select Vendor</option>
-                    {% for v in stats.vendors|default([]) %}
+                    {% for v in stats.vendors|default([]) if v.active_rules|default(0) > 0 %}
                     <option value="{{ v.name }}">{{ v.display_name }} ({{ v.active_rules|default(0)|commafy }})</option>
                     {% endfor %}
                 </select>
