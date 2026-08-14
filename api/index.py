@@ -998,7 +998,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         '<div class="result-meta">' +
                         (r.language ? '<span>Language: ' + r.language + '</span>' : '') +
                         (r.category ? '<span>Category: ' + r.category + '</span>' : '') +
-                        (r.cwe_ids && r.cwe_ids !== '[]' && r.cwe_ids !== 'null' ? '<span>CWE: ' + escapeHtml(formatCwe(r.cwe_ids)) + '</span>' : '') +
+                        (r.cwe_ids && r.cwe_ids !== '[]' && r.cwe_ids !== 'null' && r.cwe_ids !== '' ? '<span>CWE: ' + escapeHtml(formatCwe(r.cwe_ids)) + '</span>' : '') +
                         '<span>Updated: ' + (r.last_updated_at || '').slice(0, 10) + '</span></div></div>';
                 }
                 // Pagination controls
@@ -1046,7 +1046,12 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         function escapeHtml(str) { const d = document.createElement('div'); d.textContent = str; return d.innerHTML; }
         function formatCwe(cweStr) {
             try {
-                const arr = typeof cweStr === 'string' ? JSON.parse(cweStr) : cweStr;
+                if (!cweStr) return '';
+                // Handle plain string (e.g., "cwe-89")
+                if (typeof cweStr === 'string' && !cweStr.startsWith('[')) {
+                    return cweStr.toUpperCase();
+                }
+                const arr = JSON.parse(cweStr);
                 if (!Array.isArray(arr) || arr.length === 0) return '';
                 return arr.join(', ');
             } catch(e) { return cweStr; }
