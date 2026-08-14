@@ -40,14 +40,20 @@ def run(cmd, cwd=None, check=True, env=None):
 
 
 def slim_for_deploy(src_db: Path, dest_db: Path):
-    """Copy the aggregator DB and strip tables not needed for deployment.
+    """Copy the aggregator DB and strip data not needed for deployment.
 
-    rule_changes and sync_history accumulate full rule content on every
-    sync (390MB+ for a fresh sync of 37k rules). The Vercel dashboard
-    only reads vendors, rules, and rules_fts — so we drop the history
-    tables and VACUUM to reclaim the space.
+    Three things get stripped:
+    1. rule_changes — accumulates full old/new rule content on every sync
+       (390MB+ for a fresh sync of 37k rules). Dashboard never reads it.
+    2. sync_history — audit log, not needed on a read-only deploy.
+    3. rule_content — raw rule definitions (YAML/JSON/XML/Rego), 56MB+.
+       The dashboard's search/listing endpoints don't use it. The detail
+       endpoint returns it but it's mostly noise in a browser context.
+       Dropping it keeps the DB under GitHub's 100MB file size limit.
+
+    Result: ~63MB instead of 512MB, with all 37k rules + FTS intact.
     """
-    print(f"\nBuilding deployment DB (stripping change history)...")
+    print(f"\nBuilding deployment DB (stripping change history + rule content)...")
     dest_db.parent.mkdir(parents=True, exist_ok=True)
     if dest_db.exists():
         dest_db.unlink()
@@ -57,6 +63,7 @@ def slim_for_deploy(src_db: Path, dest_db: Path):
     conn.isolation_level = None  # autocommit mode required for VACUUM
     conn.execute("DELETE FROM rule_changes;")
     conn.execute("DELETE FROM sync_history;")
+    conn.execute("UPDATE rules SET rule_content = '';")
     conn.execute("VACUUM;")
     conn.close()
 
