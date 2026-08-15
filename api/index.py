@@ -70,7 +70,8 @@ def api_rules():
 def api_rule_detail(rule_id):
     conn = get_db()
     row = conn.execute("""
-        SELECT r.*, v.name as vendor_name, v.display_name as vendor_display_name
+        SELECT r.*, v.name as vendor_name, v.display_name as vendor_display_name,
+               v.source_url as vendor_source_url
         FROM rules r JOIN vendors v ON r.vendor_id=v.id
         WHERE r.rule_id=?
     """, (rule_id,)).fetchone()
@@ -358,7 +359,8 @@ def search_rules(query="", vendor=None, severity=None, language=None,
     rows = conn.execute(
         f"""SELECT r.id, r.rule_id, r.title, r.severity, r.category, r.language,
                    r.cwe_ids, r.owasp_ids, r.tags, r.source_file, r.metadata,
-                   r.last_updated_at, v.name as vendor_name, v.display_name as vendor_display_name
+                   r.last_updated_at, v.name as vendor_name, v.display_name as vendor_display_name,
+                   v.source_url as vendor_source_url
             FROM rules r JOIN vendors v ON r.vendor_id=v.id
             WHERE {where} ORDER BY r.last_updated_at DESC LIMIT ? OFFSET ?""",
         params + [per_page, offset],
@@ -557,16 +559,33 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             display: flex; align-items: center; gap: 0.5rem;
         }
         .card-title-icon { font-size: 1rem; }
-        .vendor-table { width: 100%; border-collapse: collapse; }
+        .vendor-table { width: 100%; border-collapse: collapse; table-layout: auto; }
         .vendor-table th {
             text-align: left; padding: 0.6rem 0.75rem; font-size: 0.7rem;
             text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted);
             border-bottom: 1px solid var(--border);
         }
-        .vendor-table td { padding: 0.75rem; border-bottom: 1px solid rgba(42,58,78,0.5); font-size: 0.85rem; }
+        .vendor-table td { padding: 0.75rem; border-bottom: 1px solid rgba(42,58,78,0.5); font-size: 0.85rem; vertical-align: top; }
         .vendor-table tr:hover td { background: var(--bg-card-hover); }
         .vendor-name { font-weight: 600; color: var(--accent-cyan); }
         .vendor-rules { font-weight: 700; color: var(--accent-green); font-variant-numeric: tabular-nums; }
+        .source-url {
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.72rem; color: var(--accent-blue);
+            text-decoration: none; word-break: break-all; line-height: 1.4;
+        }
+        .source-url:hover { text-decoration: underline; color: var(--accent-cyan); }
+        .source-type-badge {
+            display: inline-block; padding: 0.1rem 0.4rem; border-radius: 3px;
+            font-size: 0.65rem; font-weight: 600; text-transform: uppercase;
+            letter-spacing: 0.04em; margin-left: 0.4rem; vertical-align: middle;
+        }
+        .source-type-github { background: rgba(139,92,246,0.2); color: var(--accent-purple); }
+        .source-type-api { background: rgba(6,182,212,0.2); color: var(--accent-cyan); }
+        .source-type-web_scrape { background: rgba(245,158,11,0.2); color: var(--accent-amber); }
+        .source-type-web { background: rgba(245,158,11,0.2); color: var(--accent-amber); }
+        .source-type-file { background: rgba(100,116,139,0.2); color: var(--text-secondary); }
+        .source-type-gitlab { background: rgba(239,68,68,0.2); color: var(--accent-red); }
         .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; }
         .status-active { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
         .sev-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
@@ -769,11 +788,21 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F50D;</span> Vendor Sources</div>
                 <table class="vendor-table">
-                    <thead><tr><th>Vendor</th><th>Rules</th><th>Last Sync</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Vendor</th><th>Source URL</th><th>Rules</th><th>Last Sync</th><th>Status</th></tr></thead>
                     <tbody>
                         {% for v in stats.vendors|default([]) %}
                         <tr>
-                            <td><span class="vendor-name">{{ v.display_name }}</span></td>
+                            <td>
+                                <span class="vendor-name">{{ v.display_name }}</span>
+                                {% if v.source_type %}<span class="source-type-badge source-type-{{ v.source_type }}">{{ v.source_type }}</span>{% endif %}
+                            </td>
+                            <td>
+                                {% if v.source_url %}
+                                <a href="{{ v.source_url }}" target="_blank" rel="noopener" class="source-url">{{ v.source_url }}</a>
+                                {% else %}
+                                <span style="color: var(--text-muted); font-size: 0.8rem;">—</span>
+                                {% endif %}
+                            </td>
                             <td><span class="vendor-rules">{{ v.active_rules|default(0)|commafy }}</span></td>
                             <td style="color: var(--text-muted); font-size: 0.8rem;">{{ (v.last_successful_sync or 'Never')|truncate(10, True, '') }}</td>
                             <td>{% if v.active_rules|default(0) > 0 %}<span class="status-dot status-active"></span>Active{% else %}<span class="status-dot"></span>Pending{% endif %}</td>
@@ -990,6 +1019,14 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 }
                 let html = '<div class="result-count">' + data.total.toLocaleString() + ' rules found</div>';
                 for (const r of data.rules) {
+                    let sourceLink = '';
+                    if (r.source_file) {
+                        let sfUrl = r.source_file;
+                        if (!sfUrl.startsWith('http') && r.vendor_source_url) {
+                            sfUrl = r.vendor_source_url.replace(/\.git$/, '') + '/blob/HEAD/' + sfUrl;
+                        }
+                        sourceLink = '<span>Source: <a href="' + escapeHtml(sfUrl) + '" target="_blank" rel="noopener" class="source-url" style="font-size:0.7rem;">' + escapeHtml(r.source_file.length > 60 ? r.source_file.substring(0, 57) + '...' : r.source_file) + '</a></span>';
+                    }
                     html += '<div class="result-item"><div class="result-header">' +
                         '<span class="sev-badge sev-' + r.severity + '">' + r.severity + '</span>' +
                         '<span class="result-vendor">' + r.vendor_display_name + '</span>' +
@@ -999,6 +1036,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         (r.language ? '<span>Language: ' + r.language + '</span>' : '') +
                         (r.category ? '<span>Category: ' + r.category + '</span>' : '') +
                         (r.cwe_ids && r.cwe_ids !== '[]' && r.cwe_ids !== 'null' && r.cwe_ids !== '' ? '<span>CWE: ' + escapeHtml(formatCwe(r.cwe_ids)) + '</span>' : '') +
+                        sourceLink +
                         '<span>Updated: ' + (r.last_updated_at || '').slice(0, 10) + '</span></div></div>';
                 }
                 // Pagination controls
