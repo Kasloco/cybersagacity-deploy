@@ -54,6 +54,17 @@ jobs:
             echo "✅ No rule changes detected this cycle." >> $GITHUB_STEP_SUMMARY
           else
             git commit -m "Auto-sync rules.db ($(date -u '+%Y-%m-%d %H:%M UTC'))"
-            git push
-            echo "🚀 rules.db updated and pushed — Vercel will auto-deploy." >> $GITHUB_STEP_SUMMARY
+            # Retry push with rebase in case another sync run pushed first
+            for i in 1 2 3; do
+              if git push --force-with-lease; then
+                echo "🚀 rules.db updated and pushed — Vercel will auto-deploy." >> $GITHUB_STEP_SUMMARY
+                break
+              elif [ $i -lt 3 ]; then
+                echo "Push failed (attempt $i), pulling and retrying..."
+                git pull --rebase --strategy-option theirs
+              else
+                echo "⚠️ Push failed after 3 attempts — another sync likely already pushed." >> $GITHUB_STEP_SUMMARY
+                exit 0
+              fi
+            done
           fi
