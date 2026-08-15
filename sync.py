@@ -47,20 +47,24 @@ DB_PATH = DEPLOY_DIR / "data" / "rules.db"
 # spec, so they're excluded from this list.
 # ---------------------------------------------------------------------------
 SUPPORTED_VENDORS = [
+    "adacore_codepeer",
     "bandit",
+    "checkmarx_cxsast",     # maps to checkmarx_9_sast + checkmarx_one_sast
     "clang",
+    "coverity",             # maps to blackduck_coverity
     "cppcheck",
     "deque_axe",
     "dlint",
-    "eslint_security",
+    "eslint_security",      # maps to eslint in spec
     "findsecbugs",
-    "fortify",
+    "fortify",              # maps to opentext_fortify
     "gitlab_advanced_sast",
     "gitlab_dast",
-    "gitlab_sast",
-    "infer",
+    "gitlab_sast",          # maps to gitlab in spec
+    "infer",                # maps to facebook_infer
+    "mend_sast",            # maps to mend
     "mobsf",
-    "nodejsscan",        # maps to nodejs_scan in spec
+    "nodejsscan",           # maps to nodejs_scan
     "njsscan",
     "owasp_zap",
     "php_codesniffer",
@@ -70,10 +74,23 @@ SUPPORTED_VENDORS = [
     "pylint",
     "security_code_scan",
     "semgrep",
-    "snyk",
+    "snyk",                 # maps to snyk_code_sast
     "sonarqube",
     "spotbugs",
-    "veracode",
+    "veracode",             # maps to veracode_sast
+    # --- New collectors (built below) ---
+    "npm_audit",
+    "snyk_oss_sca",
+    "veracode_dast",
+    "wallarm_api",
+    "tenable_was",
+    "stackhawk",
+    "jfrog_xray",
+    "parasoft_insure",
+    "klocwork",
+    "adacore_codepeer",
+    "checkmarx_dast",
+    "checkmarx_one_sast",
 ]
 
 
