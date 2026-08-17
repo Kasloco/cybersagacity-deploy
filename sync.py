@@ -91,6 +91,10 @@ SUPPORTED_VENDORS = [
     "adacore_codepeer",
     "checkmarx_dast",
     "checkmarx_one_sast",
+    # --- Activated by Kas (2026-08-17) ---
+    "flawfinder",
+    "joern",
+    "osv_scanner",
 ]
 
 

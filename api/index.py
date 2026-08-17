@@ -18,6 +18,59 @@ from api.tool_config import (
 )
 
 app = Flask(__name__)
+
+# ---------------------------------------------------------------------------
+# Vendor name -> Chris Near's tool_config key mapping.
+# Vendors not in this map are NOT in Chris's spec and will be labeled
+# "Not in Spec" in the dashboard instead of "Pending".
+# ---------------------------------------------------------------------------
+VENDOR_SPEC_MAP = {
+    "adacore_codepeer": "adacore_codepeer",
+    "bandit": "bandit",
+    "checkmarx_cxsast": "checkmarx_9_sast",
+    "checkmarx_dast": "checkmarx_dast",
+    "checkmarx_one_sast": "checkmarx_one_sast",
+    "clang": "clang",
+    "coverity": "blackduck_coverity",
+    "cppcheck": "cppcheck",
+    "deque_axe": "deque_axe",
+    "dlint": "dlint",
+    "eslint_security": "eslint",
+    "findsecbugs": "findsecbugs",
+    "fortify": "opentext_fortify",
+    "gitlab_advanced_sast": "gitlab_advanced_sast",
+    "gitlab_dast": "gitlab_dast",
+    "gitlab_sast": "gitlab",
+    "infer": "facebook_infer",
+    "jfrog_xray": "jfrog",
+    "klocwork": "perforce_klocwork",
+    "mobsf": "mobsf",
+    "njsscan": "njsscan",
+    "nodejsscan": "nodejs_scan",
+    "npm_audit": "npm",
+    "owasp_zap": "owasp_zap",
+    "parasoft_insure": "parasoft_insure",
+    "php_codesniffer": "php_codesniffer",
+    "phpcs_security_audit": "phpcs_security_audit",
+    "phpmd": "phpmd",
+    "pmd": "pmd",
+    "pylint": "pylint",
+    "security_code_scan": "security_code_scan",
+    "semgrep": "semgrep",
+    "snyk": "snyk_code_sast",
+    "snyk_oss_sca": "snyk_oss_sca",
+    "sonarqube": "sonarqube",
+    "spotbugs": "spotbugs",
+    "stackhawk": "stackhawk",
+    "tenable_was": "tenable_was",
+    "veracode": "veracode_sast",
+    "veracode_dast": "veracode_dast",
+    "wallarm_api": "wallarm_api",
+    "mend_sast": "mend",
+    "flawfinder": "flawfinder",
+    "joern": "joern",
+    "osv_scanner": "osv_scanner",
+}
 CORS(app)
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "rules.db")
@@ -391,6 +444,16 @@ def get_dashboard_stats():
     """).fetchall()
     ]
 
+    # Enrich each vendor with spec status (in Chris's spec? active in spec?)
+    for v in vendors:
+        spec_key = VENDOR_SPEC_MAP.get(v["name"])
+        if spec_key and spec_key in TOOL_CONFIGS:
+            v["in_spec"] = True
+            v["spec_active"] = TOOL_CONFIGS[spec_key].get("active", True)
+        else:
+            v["in_spec"] = False
+            v["spec_active"] = False
+
     # Chart vendors: all vendors with rules, sorted by rule count descending
     chart_vendors = [
         dict(r)
@@ -588,6 +651,8 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .source-type-gitlab { background: rgba(239,68,68,0.2); color: var(--accent-red); }
         .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; }
         .status-active { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
+        .status-pending { background: var(--accent-amber, #f5a623); }
+        .status-excluded { background: var(--text-muted); opacity: 0.4; }
         .sev-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         .sev-critical { background: rgba(239,68,68,0.2); color: #f87171; }
         .sev-high { background: rgba(244,63,94,0.2); color: #fb7185; }
@@ -805,7 +870,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                             </td>
                             <td><span class="vendor-rules">{{ v.active_rules|default(0)|commafy }}</span></td>
                             <td style="color: var(--text-muted); font-size: 0.8rem;">{{ (v.last_successful_sync or 'Never')|truncate(10, True, '') }}</td>
-                            <td>{% if v.active_rules|default(0) > 0 %}<span class="status-dot status-active"></span>Active{% else %}<span class="status-dot"></span>Pending{% endif %}</td>
+                            <td>{% if v.active_rules|default(0) > 0 %}<span class="status-dot status-active"></span>Active{% elif v.in_spec %}<span class="status-dot status-pending"></span>Pending{% else %}<span class="status-dot status-excluded"></span>Not in Spec{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

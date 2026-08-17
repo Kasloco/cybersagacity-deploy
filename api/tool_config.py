@@ -441,8 +441,8 @@ TOOL_CONFIGS = {
     "flawfinder": {
         "display_name": "Flawfinder",
         "languages": ["C/C++"],
-        "language_notes": "No longer active.",
-        "active": False,
+        "language_notes": "Simple pattern-based C/C++ vulnerability scanner. Maps to CWEs.",
+        "active": True,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "AddAccessAllowedAce"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "732"},
@@ -1155,7 +1155,7 @@ TOOL_CONFIGS = {
         "display_name": "Joern",
         "languages": ["C/C++", "Java", "JavaScript", "Python", "Kotlin"],
         "language_notes": "Code Property Graph analyzer. Vulnerability research and data flow analysis.",
-        "active": False,
+        "active": True,
         "fields": [
             {"csv_header": "Defect Name", "db_field": "rule_id", "example": "buffer-overflow"},
             {"csv_header": "CWE Mapping", "db_field": "cwe_ids", "example": "120, can be none"},
@@ -1174,7 +1174,7 @@ TOOL_CONFIGS = {
         "display_name": "OSV-Scanner",
         "languages": ["Universal"],
         "language_notes": "Language-agnostic through package manifests, lockfiles, SBOMs. CVE-based.",
-        "active": False,
+        "active": True,
         "fields": [
             {"csv_header": "Defect ID", "db_field": "rule_id", "example": "CVE-2021-44228"},
             {"csv_header": "Defect Name", "db_field": "title", "example": "Log4Shell"},
