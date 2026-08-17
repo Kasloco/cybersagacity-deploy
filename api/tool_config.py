@@ -1313,7 +1313,7 @@ def get_tool_summary():
             "csv_headers": [f["csv_header"] for f in cfg["fields"]],
             "has_severity": bool(cfg.get("severity_map")),
         })
-    return summary
+    return sorted(summary, key=lambda t: t["display_name"].lower())
 
 
 def map_severity(tool_key, raw_severity):
