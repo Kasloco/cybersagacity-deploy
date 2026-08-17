@@ -841,11 +841,21 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         <section class="grid-2">
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F50D;</span> Vendor Sources</div>
-                <table class="vendor-table">
+                <div style="display: flex; gap: 0.5rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                    <input type="text" class="search-input" id="vendorSearch" placeholder="Filter vendors..." style="max-width: 300px; padding: 0.6rem 1rem; font-size: 0.85rem;">
+                    <select class="filter-select" id="vendorStatusFilter" style="min-width: 120px; padding: 0.6rem 1rem; font-size: 0.85rem;">
+                        <option value="">All Status</option>
+                        <option value="active">Active</option>
+                        <option value="pending">Pending</option>
+                    </select>
+                    <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;" id="vendorCount"></span>
+                </div>
+                <div style="max-height: 500px; overflow-y: auto; overflow-x: auto; position: relative;">
+                <table class="vendor-table" id="vendorTable">
                     <thead><tr><th>Vendor</th><th>Source URL</th><th>Rules</th><th>Last Sync</th><th>Status</th></tr></thead>
                     <tbody>
                         {% for v in stats.vendors|default([]) %}
-                        <tr>
+                        <tr class="vendor-row" data-name="{{ v.display_name|lower }}" data-status="{% if v.active_rules|default(0) > 0 %}active{% else %}pending{% endif %}">
                             <td>
                                 <span class="vendor-name">{{ v.display_name }}</span>
                                 {% if v.source_type %}<span class="source-type-badge source-type-{{ v.source_type }}">{{ v.source_type }}</span>{% endif %}
@@ -864,6 +874,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                         {% endfor %}
                     </tbody>
                 </table>
+                </div>
             </div>
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F310;</span> Language Coverage</div>
@@ -1044,6 +1055,28 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         }
         toolSearchInput.addEventListener('input', filterTools);
         filterTools();
+
+        /* Vendor Sources filter */
+        const vendorSearchInput = document.getElementById('vendorSearch');
+        const vendorStatusFilter = document.getElementById('vendorStatusFilter');
+        const vendorRows = document.querySelectorAll('.vendor-row');
+        const vendorCountEl = document.getElementById('vendorCount');
+        function filterVendors() {
+            const q = vendorSearchInput.value.toLowerCase();
+            const status = vendorStatusFilter.value;
+            let visible = 0;
+            vendorRows.forEach(row => {
+                const nameMatch = row.dataset.name.includes(q);
+                const statusMatch = !status || row.dataset.status === status;
+                const match = nameMatch && statusMatch;
+                row.style.display = match ? '' : 'none';
+                if (match) visible++;
+            });
+            vendorCountEl.textContent = (q || status) ? visible + ' of ' + vendorRows.length + ' vendors' : vendorRows.length + ' vendors';
+        }
+        vendorSearchInput.addEventListener('input', filterVendors);
+        vendorStatusFilter.addEventListener('change', filterVendors);
+        filterVendors();
 
         async function searchRules(page) {
             page = page || 1;
