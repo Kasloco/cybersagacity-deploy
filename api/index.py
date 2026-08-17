@@ -875,10 +875,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
             </div>
         </section>
 
-        <section class="grid-2">
+        <section>
             <div class="card">
                 <div class="card-title"><span class="card-title-icon">&#x1F504;</span> Recent Syncs</div>
-                {% for s in stats.recent_syncs|default([])|batch(10)|first|default([]) %}
+                {% for s in stats.recent_syncs|default([])|batch(15)|first|default([]) %}
                 <div class="sync-item">
                     <span class="sync-status {% if s.status == 'success' %}sync-success{% elif s.status == 'failed' %}sync-failed{% endif %}">{{ s.status }}</span>
                     <span style="color: var(--accent-cyan); font-weight: 600;">{{ s.vendor_name }}</span>
@@ -888,13 +888,11 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     </span>
                 </div>
                 {% endfor %}
-            </div>
-            <div class="card">
-                <div class="card-title"><span class="card-title-icon">&#x1F504;</span> Sync Schedule</div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary); line-height: 1.7;">
-                    <p>Rules are synced via <code style="color: var(--accent-cyan); background: rgba(6,182,212,0.1); padding: 0.1rem 0.4rem; border-radius: 4px;">python cli.py sync</code></p>
-                    <p style="margin-top: 0.5rem;">Each vendor is pulled from its upstream source (GitHub repos, API endpoints) and rules are parsed, normalized, and stored in the database.</p>
+                {% if not stats.recent_syncs %}
+                <div style="color: var(--text-muted); padding: 1rem; text-align: center;">
+                    No syncs recorded yet.
                 </div>
+                {% endif %}
             </div>
         </section>
 
