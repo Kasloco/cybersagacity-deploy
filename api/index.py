@@ -444,16 +444,6 @@ def get_dashboard_stats():
     """).fetchall()
     ]
 
-    # Enrich each vendor with spec status (in Chris's spec? active in spec?)
-    for v in vendors:
-        spec_key = VENDOR_SPEC_MAP.get(v["name"])
-        if spec_key and spec_key in TOOL_CONFIGS:
-            v["in_spec"] = True
-            v["spec_active"] = TOOL_CONFIGS[spec_key].get("active", True)
-        else:
-            v["in_spec"] = False
-            v["spec_active"] = False
-
     # Chart vendors: all vendors with rules, sorted by rule count descending
     chart_vendors = [
         dict(r)
@@ -652,7 +642,6 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         .status-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 0.4rem; }
         .status-active { background: var(--accent-green); box-shadow: 0 0 6px var(--accent-green); }
         .status-pending { background: var(--accent-amber, #f5a623); }
-        .status-excluded { background: var(--text-muted); opacity: 0.4; }
         .sev-badge { display: inline-block; padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; }
         .sev-critical { background: rgba(239,68,68,0.2); color: #f87171; }
         .sev-high { background: rgba(244,63,94,0.2); color: #fb7185; }
@@ -870,7 +859,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                             </td>
                             <td><span class="vendor-rules">{{ v.active_rules|default(0)|commafy }}</span></td>
                             <td style="color: var(--text-muted); font-size: 0.8rem;">{{ (v.last_successful_sync or 'Never')|truncate(10, True, '') }}</td>
-                            <td>{% if v.active_rules|default(0) > 0 %}<span class="status-dot status-active"></span>Active{% elif v.in_spec %}<span class="status-dot status-pending"></span>Pending{% else %}<span class="status-dot status-excluded"></span>Not in Spec{% endif %}</td>
+                            <td>{% if v.active_rules|default(0) > 0 %}<span class="status-dot status-active"></span>Active{% else %}<span class="status-dot status-pending"></span>Pending{% endif %}</td>
                         </tr>
                         {% endfor %}
                     </tbody>

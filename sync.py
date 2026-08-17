@@ -120,9 +120,9 @@ def slim_for_deploy(src_db: Path, dest_db: Path, supported_vendors: list[str] | 
     2. sync_history — audit log, not needed on a read-only deploy.
     3. rule_content — raw rule definitions (YAML/JSON/XML/Rego), 56MB+.
        Dropping it keeps the DB under GitHub's 100MB file size limit.
-    4. Rules from unsupported vendors — if supported_vendors is provided,
-       any vendor not in that list gets is_active=0 so its rules don't
-       appear in the dashboard.
+    4. Vendors not in the supported list are DELETED entirely (their rules
+       and the vendor row). Only Chris Near's active spec tools appear
+       in the deploy DB and on the dashboard.
     """
     print(f"\nBuilding deployment DB (stripping change history + rule content)...")
     dest_db.parent.mkdir(parents=True, exist_ok=True)
@@ -136,10 +136,10 @@ def slim_for_deploy(src_db: Path, dest_db: Path, supported_vendors: list[str] | 
     conn.execute("DELETE FROM sync_history;")
     conn.execute("UPDATE rules SET rule_content = '';")
 
-    # Deactivate rules from vendors not in the supported list
+    # Delete vendors not in the supported list entirely
     if supported_vendors:
         placeholders = ",".join("?" * len(supported_vendors))
-        # Get vendor IDs to deactivate
+        # Get vendor IDs to remove
         rows = conn.execute(
             f"SELECT id, display_name FROM vendors WHERE name NOT IN ({placeholders})",
             supported_vendors,
@@ -147,17 +147,24 @@ def slim_for_deploy(src_db: Path, dest_db: Path, supported_vendors: list[str] | 
         if rows:
             ids = [r[0] for r in rows]
             id_placeholders = ",".join("?" * len(ids))
+            # Delete rules for these vendors
             conn.execute(
-                f"UPDATE rules SET is_active=0 WHERE vendor_id IN ({id_placeholders})",
+                f"DELETE FROM rules WHERE vendor_id IN ({id_placeholders})",
                 ids,
             )
-            # Zero out their rule_count so the dashboard doesn't show them
+            # Delete FTS entries for the removed rules
             conn.execute(
-                f"UPDATE vendors SET rule_count=0 WHERE id IN ({id_placeholders})",
+                f"DELETE FROM rules_fts WHERE rowid IN "
+                f"(SELECT id FROM rules WHERE vendor_id IN ({id_placeholders}))",
+                ids,
+            )
+            # Delete the vendor rows
+            conn.execute(
+                f"DELETE FROM vendors WHERE id IN ({id_placeholders})",
                 ids,
             )
             names = [r[1] for r in rows]
-            print(f"Deactivated {len(ids)} unsupported vendors: {', '.join(names)}")
+            print(f"Deleted {len(ids)} non-spec vendors: {', '.join(names)}")
 
     conn.execute("VACUUM;")
     conn.close()
