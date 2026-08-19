@@ -813,6 +813,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     {% endfor %}
                 </select>
                 <button class="search-btn" onclick="exportCsv()">&#x2B07; Download CSV</button>
+                <button class="search-btn" onclick="resetCsvFilters()" style="background: var(--bg-card); border-color: var(--border);">&#x21BB; Reset</button>
                 <span id="csvStatus" style="font-size: 0.8rem; color: var(--text-muted);"></span>
             </div>
             <div id="csvCount" style="margin-top: 0.75rem; font-size: 0.9rem; color: var(--text-secondary);">
@@ -965,6 +966,17 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
         }
 
         /* CSV Export */
+        function resetCsvFilters() {
+            document.getElementById('csvVendor').value = '';
+            document.getElementById('csvLanguage').value = '';
+            document.getElementById('csvSeverity').value = '';
+            document.getElementById('csvCategory').value = '';
+            const countEl = document.getElementById('csvCount');
+            if (countEl) { countEl.innerHTML = 'Select a vendor to see available rules.'; countEl.style.color = 'var(--text-muted)'; }
+            const status = document.getElementById('csvStatus');
+            if (status) status.textContent = '';
+        }
+
         function exportCsv() {
             const vendor = document.getElementById('csvVendor').value;
             const language = document.getElementById('csvLanguage').value;
