@@ -438,8 +438,7 @@ def get_dashboard_stats():
         for r in conn.execute("""
         SELECT v.*,
             (SELECT COUNT(*) FROM rules r WHERE r.vendor_id=v.id AND r.is_active=1) as active_rules,
-            (SELECT MAX(completed_at) FROM sync_history sh
-             WHERE sh.vendor_id=v.id AND sh.status='success') as last_successful_sync
+            v.last_synced_at as last_successful_sync
         FROM vendors v ORDER BY v.display_name
     """).fetchall()
     ]
@@ -495,15 +494,6 @@ def get_dashboard_stats():
     """).fetchall()
     ]
 
-    recent_syncs = [
-        dict(r)
-        for r in conn.execute("""
-        SELECT sh.*, v.display_name as vendor_name
-        FROM sync_history sh JOIN vendors v ON sh.vendor_id=v.id
-        ORDER BY sh.started_at DESC LIMIT 20
-    """).fetchall()
-    ]
-
     conn.close()
 
     return {
@@ -515,7 +505,6 @@ def get_dashboard_stats():
         "language_distribution": language_dist,
         "category_distribution": category_dist,
         "cwe_distribution": cwe_dist,
-        "recent_syncs": recent_syncs,
         "recent_changes": [],
         "tool_configs": get_tool_summary(),
     }
@@ -883,27 +872,6 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <span class="lang-pill">{{ l.language }} <span class="lang-count">{{ l.count|commafy }}</span></span>
                     {% endfor %}
                 </div>
-            </div>
-        </section>
-
-        <section>
-            <div class="card">
-                <div class="card-title"><span class="card-title-icon">&#x1F504;</span> Recent Syncs</div>
-                {% for s in stats.recent_syncs|default([])|batch(15)|first|default([]) %}
-                <div class="sync-item">
-                    <span class="sync-status {% if s.status == 'success' %}sync-success{% elif s.status == 'failed' %}sync-failed{% endif %}">{{ s.status }}</span>
-                    <span style="color: var(--accent-cyan); font-weight: 600;">{{ s.vendor_name }}</span>
-                    <span style="color: var(--text-muted); margin-left: auto; font-size: 0.75rem;">
-                        {% if s.status == 'success' %}+{{ s.rules_added }} / ~{{ s.rules_updated }}{% endif %}
-                        {{ (s.started_at or '')|truncate(16, True, '') }}
-                    </span>
-                </div>
-                {% endfor %}
-                {% if not stats.recent_syncs %}
-                <div style="color: var(--text-muted); padding: 1rem; text-align: center;">
-                    No syncs recorded yet.
-                </div>
-                {% endif %}
             </div>
         </section>
 
