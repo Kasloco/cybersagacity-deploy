@@ -95,6 +95,10 @@ SUPPORTED_VENDORS = [
     "flawfinder",
     "joern",
     "osv_scanner",
+    # --- ESLint plugin ecosystem (per Chris Near review 8/19/26) ---
+    "typescript-eslint",
+    "stylistic-eslint",
+    "eslint-react",
 ]
 
 
