@@ -99,6 +99,7 @@ SUPPORTED_VENDORS = [
     "typescript-eslint",
     "stylistic-eslint",
     "eslint-react",
+    "react-hooks-eslint",
 ]
 
 

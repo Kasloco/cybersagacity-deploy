@@ -70,6 +70,10 @@ VENDOR_SPEC_MAP = {
     "flawfinder": "flawfinder",
     "joern": "joern",
     "osv_scanner": "osv_scanner",
+    "typescript-eslint": "typescript-eslint",
+    "stylistic-eslint": "stylistic-eslint",
+    "eslint-react": "eslint-react",
+    "react-hooks-eslint": "react-hooks-eslint",
 }
 CORS(app)
 
