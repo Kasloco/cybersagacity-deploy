@@ -885,6 +885,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                 <input type="text" class="search-input" id="toolSearch" placeholder="Filter tools..." style="max-width: 300px; padding: 0.6rem 1rem; font-size: 0.85rem;">
                 <span style="font-size: 0.8rem; color: var(--text-muted); align-self: center;" id="toolCount"></span>
             </div>
+            <div style="max-height: 600px; overflow-y: auto; padding-right: 0.5rem;">
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem;" id="toolGrid">
                 {% for tc in stats.tool_configs|default([]) %}
                 <div class="tool-spec-card" data-name="{{ tc.display_name|lower }}" style="background: var(--bg-secondary); border: 1px solid var(--border); border-radius: 8px; padding: 1rem; transition: border-color 0.2s;">
@@ -897,6 +898,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
                     <div style="font-size: 0.7rem; color: var(--text-secondary);">{{ tc.languages[:3]|join(', ') }}{% if tc.languages|length > 3 %}, +{{ tc.languages|length - 3 }} more{% endif %}</div>
                 </div>
                 {% endfor %}
+            </div>
             </div>
         </section>
     </main>
