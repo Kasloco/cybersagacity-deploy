@@ -34,7 +34,7 @@ jobs:
 
       - name: Run sync script
         run: |
-          python sync.py ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+          python sync.py --seed ${{ github.event.inputs.force == 'true' && '--force' || '' }}
 
       - name: Show DB size
         run: |

@@ -180,6 +180,11 @@ def slim_for_deploy(src_db: Path, dest_db: Path, supported_vendors: list[str] | 
 def main():
     parser = argparse.ArgumentParser(description="Sync rules.db for deployment")
     parser.add_argument("--force", action="store_true", help="Force re-sync all vendors")
+    parser.add_argument("--seed", action="store_true",
+                        help="Seed the fresh ingest DB with the previous deploy DB "
+                             "before syncing, so a broken scrape cannot wipe "
+                             "previously deployed rules (deactivation only runs "
+                             "against rules actually missing from the new scrape).")
     parser.add_argument("--aggregator-dir", default=str(AGGREGATOR_DIR),
                         help="Where to clone/update the aggregator repo")
     args = parser.parse_args()
@@ -200,6 +205,16 @@ def main():
     run(["pip", "install", "--no-cache-dir", "-r", str(agg_dir / "requirements.txt")])
     # bs4 is needed by the Fortify collector but not in requirements.txt
     run(["pip", "install", "--no-cache-dir", "beautifulsoup4"])
+
+    # Seed the ingest DB from the previous deploy DB. The Actions runner is
+    # clean-room: without this, every run builds from scratch, deactivation
+    # runs against an empty DB, and a weak scrape (site relayout, bot block,
+    # five read-timeouts at vulncat on 2026-08-30) silently ships a degraded
+    # vendor set. init_db() is CREATE IF NOT EXISTS, so the seed survives
+    # `cli.py setup`. Deploy vendors/ids are a subset of the aggregator's.
+    if args.seed and DB_PATH.exists():
+        print(f"Seeding ingest DB from previous deploy DB: {DB_PATH}")
+        shutil.copy2(str(DB_PATH), str(db_path))
 
     # Run the sync — only supported vendors
     env = os.environ.copy()
